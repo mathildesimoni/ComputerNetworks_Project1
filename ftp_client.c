@@ -88,11 +88,36 @@ int main() {
 int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number) {
 
 	int my_ip_arr[4];
-	char buffer[256]; // 256 is a ramdom number for now
-	bzero(buffer, sizeof(buffer));
 
-	if ((strncmp(input, "STOR", 4) == 0) || (strncmp(input, "RETR", 4) == 0) || (strncmp(input, "LIST", 4) == 0)) {
-		printf("STOR, RETR or LIST command received: sending PORT command first\n");
+	// for USER, PASS, CWD, PWD, not preprocessing needed, directly send to server
+	if ((strncmp(input, "USER", 4) == 0) || (strncmp(input, "PASS", 4) == 0) || (strncmp(input, "CWD", 3) == 0) || (strncmp(input, "PWD", 3) == 0)) {
+		printf("USER, PASS, PWD or PWD command typed \n");
+		if (send(server_sd, input, strlen(input),0) < 0) {
+		    perror("send");
+		    return 0;
+		}
+	}
+
+	// for the 3 next if conditions, no server needed, commands implemented locally
+	else if (strncmp(input, "!LIST", 5) == 0) {
+		printf("!LIST command typed \n");
+	}
+
+	else if (strncmp(input, "!CWD", 4) == 0) {
+		printf("!CWD command typed \n");
+	}
+
+	else if (strncmp(input, "!PWD", 4) == 0) {
+		printf("!PWD command typed \n");
+	}
+
+	// send to server
+	else if (strncmp(input, "QUIT", 4) == 0) {
+		printf("QUIT command typed \n");
+	}
+
+	else if ((strncmp(input, "STOR", 4) == 0) || (strncmp(input, "RETR", 4) == 0) || (strncmp(input, "LIST", 4) == 0)) {
+		printf("STOR, RETR or LIST command typed: sending PORT command first\n");
 
 		// establish data connection with a PORT command
 		int new_port = my_port + *request_number;
@@ -102,37 +127,31 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		if (data_client_sd == -1) { return 0; }
 
 		int data_server_sd = establish_data_connection(server_sd, my_ip_arr, new_port, data_client_sd);
-		if (data_server_sd == -1) { return 0; }
+		if (data_server_sd == -1) { 
+			close(data_client_sd);
+			return 0; 
+		}
 
+		int data_transfer;
 		// start exchange of data
 		if (strncmp(input, "LIST", 4) == 0) {
-			list_files(data_server_sd);
+			send(server_sd, input, strlen(input), 0);
+			data_transfer = list_files(data_server_sd);
 		}
 		else {
 			char file_name[256] = "test.txt";
 			if (strncmp(input, "STOR", 4) == 0) {
-				upload_file(data_server_sd, file_name);
+				send(server_sd, input, strlen(input), 0);
+				data_transfer = upload_file(data_server_sd, file_name);
 			}
 			else { // RETR command
-				download_file(data_server_sd, file_name);
+				send(server_sd, input, strlen(input), 0);
+				data_transfer = download_file(data_server_sd, file_name);
 			}
 		}
-
-		// for testing purposes right now, just to check can send and receive data
-		// to remove when list_files(), upload_file() and download_file() are implemented
-		int wait = 1;
-		while (wait == 1) {
-			// receive data from server
-			recv(data_server_sd, buffer, sizeof(buffer), 0);
-			printf("Line of file received from server: %s \n", buffer);
-			bzero(buffer, sizeof(buffer));
-
-			// send data to server
-			strcpy(buffer, "This is the first line of the file from client");
-			send(data_server_sd, buffer, strlen(buffer), 0);
-			bzero(buffer, sizeof(buffer));
-
-			wait = 0; // remove later: need to stop while loop when reach end of the file
+		if (data_transfer == 0) {
+			close(data_client_sd);
+			return 0; 
 		}
 
 		// close the data connection
@@ -159,6 +178,10 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 // return 0 if invalid command or 1 if valid command
 int check_input(char* input) {
 	//  need to implement this function
+	if (strncmp(input, "PORT", 4) == 0) {
+		printf("You cannot explicitely send a PORT command \n");
+		return 0;
+	}
 	return 1;
 }
 
@@ -237,14 +260,35 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 }
 
 int upload_file(int data_server_sd, char* file_name) {
+	char buffer[256]; // 256 is a ramdom number for now
+	bzero(buffer, sizeof(buffer));
+
+	strcpy(buffer, "This is the first line of the file from client");
+	send(data_server_sd, buffer, strlen(buffer), 0);
+	bzero(buffer, sizeof(buffer));
+
 	return 1;
 }
 
 int download_file(int data_server_sd, char* file_name){
+	char buffer[256]; // 256 is a ramdom number for now
+	bzero(buffer, sizeof(buffer));
+	
+	recv(data_server_sd, buffer, sizeof(buffer), 0);
+	printf("Line of file received from server: %s \n", buffer);
+	// bzero(buffer, sizeof(buffer));
+
 	return 1;
 }
 
 int list_files(int data_server_sd) {
+	char buffer[256]; // 256 is a ramdom number for now
+	bzero(buffer, sizeof(buffer));
+
+	recv(data_server_sd, buffer, sizeof(buffer), 0);
+	printf("Files in the directory: %s \n", buffer);
+	// bzero(buffer, sizeof(buffer));
+
 	return 1;
 }
 

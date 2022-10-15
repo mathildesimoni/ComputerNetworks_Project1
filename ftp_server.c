@@ -8,6 +8,9 @@
 int serve_client(int client_fd);
 int check_input(char* input);
 int create_data_socket(char* client_ip, int client_port);
+int handle_STOR(int data_sd, char* message);
+int handle_RETR(int data_sd, char* message);
+int handle_LIST(int data_sd, char* message);
 
 int main()
 {
@@ -126,15 +129,44 @@ int serve_client(int client_fd) {
 		bzero(&message, sizeof(message));
 
 		// start exchange of data
-	    // send data to client
-	    strcpy(buffer, "This is the first line of the file from server");
-	    send(data_sd, buffer, strlen(buffer), 0);
-	    bzero(&buffer,sizeof(buffer));
+		// waits for RETR, LIST or STOR command
+		if (recv(client_fd, message, sizeof(message), 0) < 0) {
+			perror("recv");
+			return 0;
+		}
 
-	    // receive data from client
-	    recv(data_sd, buffer, sizeof(buffer), 0);
-		printf("Line of file received from client: %s \n", buffer);
-		bzero(&buffer,sizeof(buffer));
+		int data_transfer;
+
+		if (strncmp(message, "STOR", 4) == 0) {
+			printf("STOR command received\n");
+			data_transfer = handle_STOR(data_sd, message);
+		}
+
+		else if (strncmp(message, "RETR", 4) == 0) {
+			printf("RETR command received\n");
+			data_transfer = handle_RETR(data_sd, message);
+		}
+
+		else if (strncmp(message, "LIST", 4) == 0) {
+			printf("LIST command received\n");
+			data_transfer = handle_LIST(data_sd, message);
+		}
+
+		if (data_transfer == 0) { return 0; }
+
+
+
+
+
+	    // send data to client
+	 //    strcpy(buffer, "This is the first line of the file from server");
+	 //    send(data_sd, buffer, strlen(buffer), 0);
+	 //    bzero(&buffer,sizeof(buffer));
+
+	 //    // receive data from client
+	 //    recv(data_sd, buffer, sizeof(buffer), 0);
+		// printf("Line of file received from client: %s \n", buffer);
+		// bzero(&buffer,sizeof(buffer));
 
 	    close(data_sd);
 	}
@@ -219,5 +251,46 @@ int create_data_socket(char* client_ip, int client_port){
     }
     return data_sd;
 }
+
+int handle_STOR(int data_sd, char* message) {
+	char buffer[256]; // 256 is a ramdom number for now
+	bzero(buffer, sizeof(buffer));
+
+	// receive data from client
+	recv(data_sd, buffer, sizeof(buffer), 0);
+	printf("Line of file received from client: %s \n", buffer);
+	bzero(&buffer,sizeof(buffer));
+
+	return 1;
+}
+
+int handle_RETR(int data_sd, char* message) {
+	char buffer[256]; // 256 is a ramdom number for now
+	bzero(buffer, sizeof(buffer));
+
+	// send data to client
+    strcpy(buffer, "This is the first line of the file");
+    send(data_sd, buffer, strlen(buffer), 0);
+    bzero(&buffer,sizeof(buffer));
+
+    return 1;
+}
+
+int handle_LIST(int data_sd, char* message) {
+	char buffer[256]; // 256 is a ramdom number for now
+	bzero(buffer, sizeof(buffer));
+
+	// send data to client
+    strcpy(buffer, "file 1, file 2, file 3");
+    send(data_sd, buffer, strlen(buffer), 0);
+    bzero(&buffer,sizeof(buffer));
+
+    return 1;
+}
+
+
+
+
+
 
 
