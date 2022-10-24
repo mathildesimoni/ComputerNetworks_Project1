@@ -16,7 +16,7 @@ int main()
 {
 	//1. socket();
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-	printf("server_fd = %d \n", server_fd);
+	// printf("server_fd = %d \n", server_fd);
 	if (server_fd < 0) {
 		perror("socket");
 		return -1;
@@ -25,6 +25,7 @@ int main()
 		perror("setsock");
 		return -1;
 	}
+
 	//2. bind ();
 	struct sockaddr_in server_address;
 	bzero(&server_address, sizeof(server_address));
@@ -41,16 +42,22 @@ int main()
 		perror("listen");
 		return -1;
 	}
+	printf("Server started and is listening...\n");
 
 	fd_set full_fdset,ready_fdset;
 	FD_ZERO(&full_fdset);
 	FD_SET(server_fd,&full_fdset);
 	int max_fd = server_fd;
+	int result = 0;
+	int to_stop = 0;
 
 	//4. accept()
 	while(1) {	
 		// printf("max_fd=%d\n",max_fd);
 		ready_fdset = full_fdset;
+		if (to_stop == 1){
+			break;
+		}
 		if (select(max_fd+1, &ready_fdset, NULL, NULL, NULL) < 0) {
 			perror("select");
 			return -1;
@@ -60,20 +67,36 @@ int main()
 			if (FD_ISSET(fd, &ready_fdset)) {
 				if (fd == server_fd) {
 					int new_fd = accept(server_fd, NULL, NULL);
-					printf("client fd = %d \n", new_fd);
+					// printf("client fd = %d \n", new_fd);
 					FD_SET(new_fd, &full_fdset);
 					if (new_fd > max_fd) max_fd = new_fd;    //Update the max_fd if new socket has higher FD
 				}
-				else if (serve_client(fd) == -1) { // if client disconnected
-					FD_CLR(fd,&full_fdset);
+				else {
+					printf("\n");
+					result = serve_client(fd);
+					if (result == -1){ // if client disconnected
+						FD_CLR(fd,&full_fdset);
+					}
+					// to remove later, debugging for now
+					if (result == -2){ // for fork
+						// FD_CLR(server_fd,&full_fdset);
+						// printf("Clearing client (-2)\n");
+						printf("received -2 \n");
+						// to_stop = 1;
+					}
 				}
 			}
 		}
 	}
-
+	if (to_stop == 1){
+		return 0;
+	}
 	//6. close());
+	printf("Closing server_fd\n");
 	close(server_fd);
+	return 0;
 }
+
 //=================================
 //  returns -1 if client wants to disconnect, 0 if invalid input/other problem, 1 of OK
 int serve_client(int client_fd) {
@@ -89,7 +112,7 @@ int serve_client(int client_fd) {
 	}
 
 	// check if the client disconnected or wants to disconnect
-	if (strcmp(message, "bye") == 0 || strlen(message) == 0) {
+	if (strlen(message) == 0) {
 		printf("Client disconnected \n");
 		close(client_fd);
 		return -1;
@@ -107,68 +130,66 @@ int serve_client(int client_fd) {
 	if (strncmp(message, "PORT", 4) == 0){
 		printf("PORT command received\n");
 
-		// first, get client address and port
-		int client_ip_arr[4];
-		int client_port_arr[2];
-		char client_ip[30];
-		int client_port;
-		sscanf(message, "PORT %d,%d,%d,%d,%d,%d", &client_ip_arr[0], &client_ip_arr[1], &client_ip_arr[2], &client_ip_arr[3], &client_port_arr[0], &client_port_arr[1]);
-		sprintf(client_ip, "%d.%d.%d.%d", client_ip_arr[0], client_ip_arr[1], client_ip_arr[2],client_ip_arr[3]);
-		client_port = client_port_arr[0] * 256 + client_port_arr[1];
-		printf("client IP: %s\n", client_ip);
-		printf("client PORT: %d\n", client_port);
+		int pid = fork();
+		
+		if (pid == 0) {
+			// close(server_fd);
 
-		int data_sd = create_data_socket(client_ip, client_port);
-		if (data_sd == -1) { return 0; }
-	   	printf("Connected to client on new port \n");
+			// first, get client address and port
+			int client_ip_arr[4];
+			int client_port_arr[2];
+			char client_ip[30];
+			int client_port;
+			sscanf(message, "PORT %d,%d,%d,%d,%d,%d", &client_ip_arr[0], &client_ip_arr[1], &client_ip_arr[2], &client_ip_arr[3], &client_port_arr[0], &client_port_arr[1]);
+			sprintf(client_ip, "%d.%d.%d.%d", client_ip_arr[0], client_ip_arr[1], client_ip_arr[2],client_ip_arr[3]);
+			client_port = client_port_arr[0] * 256 + client_port_arr[1];
+			printf("client IP: %s\n", client_ip);
+			printf("client PORT: %d\n", client_port);
 
-	   	// server sends acknowledgement to client that it received the port
-		bzero(&message, sizeof(message));
-		strcpy(message, "200 PORT command successful");
-		send(client_fd, message, strlen(message), 0);
-		bzero(&message, sizeof(message));
+			int data_sd = create_data_socket(client_ip, client_port);
+			if (data_sd == -1) { return 0; }
+		   	printf("Connected to client on new port \n");
 
-		// start exchange of data
-		// waits for RETR, LIST or STOR command
-		if (recv(client_fd, message, sizeof(message), 0) < 0) {
-			perror("recv");
-			return 0;
+		   	// server sends acknowledgement to client that it received the port
+			bzero(&message, sizeof(message));
+			strcpy(message, "200 PORT command successful");
+			send(client_fd, message, strlen(message), 0);
+			bzero(&message, sizeof(message));
+
+			// start exchange of data
+			// waits for RETR, LIST or STOR command
+			if (recv(client_fd, message, sizeof(message), 0) < 0) {
+				perror("recv");
+				return 0;
+			}
+
+			int data_transfer;
+
+			if (strncmp(message, "STOR", 4) == 0) {
+				printf("STOR command received\n");
+				data_transfer = handle_STOR(data_sd, message);
+			}
+
+			else if (strncmp(message, "RETR", 4) == 0) {
+				printf("RETR command received\n");
+				data_transfer = handle_RETR(data_sd, message);
+			}
+
+			else if (strncmp(message, "LIST", 4) == 0) {
+				printf("LIST command received\n");
+				data_transfer = handle_LIST(data_sd, message);
+			}
+
+			if (data_transfer == 0) { return 0; }
+
+		    close(data_sd);
+		    // return -2;
+
 		}
-
-		int data_transfer;
-
-		if (strncmp(message, "STOR", 4) == 0) {
-			printf("STOR command received\n");
-			data_transfer = handle_STOR(data_sd, message);
+		else {
+			close(client_fd); 
+			return -1;
 		}
-
-		else if (strncmp(message, "RETR", 4) == 0) {
-			printf("RETR command received\n");
-			data_transfer = handle_RETR(data_sd, message);
-		}
-
-		else if (strncmp(message, "LIST", 4) == 0) {
-			printf("LIST command received\n");
-			data_transfer = handle_LIST(data_sd, message);
-		}
-
-		if (data_transfer == 0) { return 0; }
-
-
-
-
-
-	    // send data to client
-	 //    strcpy(buffer, "This is the first line of the file from server");
-	 //    send(data_sd, buffer, strlen(buffer), 0);
-	 //    bzero(&buffer,sizeof(buffer));
-
-	 //    // receive data from client
-	 //    recv(data_sd, buffer, sizeof(buffer), 0);
-		// printf("Line of file received from client: %s \n", buffer);
-		// bzero(&buffer,sizeof(buffer));
-
-	    close(data_sd);
 	}
 
 	else if (strncmp(message, "USER", 4) == 0) {
@@ -201,6 +222,15 @@ int serve_client(int client_fd) {
 
 	else if (strncmp(message, "QUIT", 4) == 0) {
 		printf("QUIT command received\n");
+
+		bzero(&message, sizeof(message));
+		strcpy(message, "221 Service closing control connection");
+		send(client_fd, message, strlen(message), 0);
+		bzero(&message, sizeof(message));
+
+		close(client_fd);
+		printf("Client disconnected \n");
+		return -1;
 	}
 
 	return 1;
@@ -289,6 +319,73 @@ int handle_LIST(int data_sd, char* message) {
 }
 
 
+
+
+
+// draft
+
+		// // first, get client address and port
+		// int client_ip_arr[4];
+		// int client_port_arr[2];
+		// char client_ip[30];
+		// int client_port;
+		// sscanf(message, "PORT %d,%d,%d,%d,%d,%d", &client_ip_arr[0], &client_ip_arr[1], &client_ip_arr[2], &client_ip_arr[3], &client_port_arr[0], &client_port_arr[1]);
+		// sprintf(client_ip, "%d.%d.%d.%d", client_ip_arr[0], client_ip_arr[1], client_ip_arr[2],client_ip_arr[3]);
+		// client_port = client_port_arr[0] * 256 + client_port_arr[1];
+		// printf("client IP: %s\n", client_ip);
+		// printf("client PORT: %d\n", client_port);
+
+		// int data_sd = create_data_socket(client_ip, client_port);
+		// if (data_sd == -1) { return 0; }
+	 //   	printf("Connected to client on new port \n");
+
+	 //   	// server sends acknowledgement to client that it received the port
+		// bzero(&message, sizeof(message));
+		// strcpy(message, "200 PORT command successful");
+		// send(client_fd, message, strlen(message), 0);
+		// bzero(&message, sizeof(message));
+
+		// // start exchange of data
+		// // waits for RETR, LIST or STOR command
+		// if (recv(client_fd, message, sizeof(message), 0) < 0) {
+		// 	perror("recv");
+		// 	return 0;
+		// }
+
+		// int data_transfer;
+
+		// if (strncmp(message, "STOR", 4) == 0) {
+		// 	printf("STOR command received\n");
+		// 	data_transfer = handle_STOR(data_sd, message);
+		// }
+
+		// else if (strncmp(message, "RETR", 4) == 0) {
+		// 	printf("RETR command received\n");
+		// 	data_transfer = handle_RETR(data_sd, message);
+		// }
+
+		// else if (strncmp(message, "LIST", 4) == 0) {
+		// 	printf("LIST command received\n");
+		// 	data_transfer = handle_LIST(data_sd, message);
+		// }
+
+		// if (data_transfer == 0) { return 0; }
+
+
+
+
+
+	 //    // send data to client
+	 // //    strcpy(buffer, "This is the first line of the file from server");
+	 // //    send(data_sd, buffer, strlen(buffer), 0);
+	 // //    bzero(&buffer,sizeof(buffer));
+
+	 // //    // receive data from client
+	 // //    recv(data_sd, buffer, sizeof(buffer), 0);
+		// // printf("Line of file received from client: %s \n", buffer);
+		// // bzero(&buffer,sizeof(buffer));
+
+	 //    close(data_sd);
 
 
 
