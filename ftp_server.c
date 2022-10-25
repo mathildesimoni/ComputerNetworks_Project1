@@ -4,6 +4,8 @@
 #include<sys/socket.h>
 #include<arpa/inet.h>
 #include<unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #define LOGINFILE "users.txt"
 
@@ -15,6 +17,7 @@ int handle_RETR(int data_sd, char* message);
 int handle_LIST(int data_sd, char* message);
 int handle_loginuser(int client_fd, char* message);
 int handle_loginpass(int client_fd, char* message);
+int change_directory(char* cur_dir_server, char* new_dir);
 
 int main()
 {
@@ -223,6 +226,9 @@ int serve_client(int client_fd) {
 	else if (strncmp(message, "CWD", 3) == 0) {
 		printf("CWD command received\n");
 
+		char new_dir[256];
+		sscanf(message, "CWD %s", &new_dir);
+
 		bzero(&message, sizeof(message));
 		strcpy(message, "please send username");
 		send(client_fd, message, strlen(message), 0);
@@ -232,39 +238,24 @@ int serve_client(int client_fd) {
 				perror("recv");
 				return 0;
 		}
-		printf("username: %s \n", message);
+		printf("current server dir: %s \n", message);
 
-
-
-
-
-
-
-
-		// server sends acknowledgement to client that it received the port
-		// bzero(&message, sizeof(message));
-		// char [256];
-		// sscanf(input, "CWD %s", &username);
-
-		// strcpy(message, "200 directory changed to pathname/foldername.");
-		// send(client_fd, message, strlen(message), 0);
-		// bzero(&message, sizeof(message));
+		int result = change_directory(message, new_dir);
+		if (result == -1) {
+			printf("Error: could not change current server directory \n");
+			strcpy(message, "invalid directory");
+		}
+		else {
+			char tmp_response[256];
+			sprintf(tmp_response, "200 directory changed to %s%s/", message, new_dir);
+			bzero(&message, sizeof(message));
+			strcpy(message, tmp_response);
+		}
+		send(client_fd, message, strlen(message), 0);
 	}
 
 	else if (strncmp(message, "PWD", 3) == 0) {
 		printf("PWD command received\n");
-
-		bzero(&message, sizeof(message));
-		strcpy(message, "please send username");
-		send(client_fd, message, strlen(message), 0);
-
-		bzero(&message, sizeof(message));
-		if (recv(client_fd, message, sizeof(message), 0) < 0) {
-				perror("recv");
-				return 0;
-		}
-		printf("username: %s \n", message);
-		
 	}
 
 	else if (strncmp(message, "QUIT", 4) == 0) {
@@ -279,7 +270,6 @@ int serve_client(int client_fd) {
 		printf("Client disconnected \n");
 		return -1;
 	}
-
 	return 1;
 }
 
@@ -438,6 +428,22 @@ int handle_loginpass(int client_fd, char* message){
     return 0;       /* return failure */
 }
 
+int change_directory(char* cur_dir_server, char* new_dir){
+	// check new dir exists
+	printf("New dir requested: %s \n", new_dir);
+	char* path[256];
+	sprintf(path, "%s%s/", cur_dir_server, new_dir);
+	printf("new requested dir %s \n", path);
+
+	struct stat path_stat;
+	int is_dir = stat(path, &path_stat);
+
+    if (S_ISDIR(path_stat.st_mode)) {
+    	strcpy(cur_dir_server, path);
+    	return 0;
+    }
+    return -1;
+}
 
 // draft
 

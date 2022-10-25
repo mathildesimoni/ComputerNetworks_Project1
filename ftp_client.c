@@ -148,39 +148,45 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		}
 	}
 
-	else if ((strncmp(input, "CWD", 3) == 0) || (strncmp(input, "PWD", 3) == 0)){
-		printf("PWD or PWD command typed \n");
+	else if (strncmp(input, "CWD", 3) == 0){
+		printf("CWD command typed \n");
 
 		if (send(server_sd, input, strlen(input),0) < 0) {
 		    perror("send");
 		    return 0;
 		}
 
-		// waits the server is ready to receive username
+		// waits the server is ready to receive current server directory
+		bzero(message, sizeof(message));
 		recv(server_sd, message, sizeof(message), 0);
 
-		// send username to server (needed to check correct directory)
-		char username[256];
-		sscanf(cur_dir_client, "client_directories/%s/*", &username);
-		username[strlen(username)-1] = '\0';
-		printf("Username: %s \n", username);
-
-		if (send(server_sd, username, strlen(username),0) < 0) {
+		// send current server directory to server (needed to check correct directory)
+		if (send(server_sd, cur_dir_server, strlen(cur_dir_server),0) < 0) {
 		    perror("send");
 		    return 0;
 		}
 
+		char new_dir[256];
+		sscanf(input, "CWD %s", &new_dir);
 
-
-
-
-
-
-
-		// // wait for server to send response message
-		// recv(server_sd, message, sizeof(message), 0);
-		// printf("Response from server: %s \n", message);
+		// wait for answer from server
+		bzero(message, sizeof(message));
+		recv(server_sd, message, sizeof(message), 0);
+		if (strncmp(message, "200", 3) == 0) {
+			printf("Current server directory updated \n");
+			char* path[256];
+			sprintf(path, "%s%s/", cur_dir_server, new_dir);
+			strcpy(cur_dir_server, path);
+		}
+		else {
+			printf("Error: could not change current server directory \n");
+		}
 	}
+
+	else if (strncmp(input, "PWD", 3) == 0) {
+		printf("PWD command typed \n");
+	}
+
 
 	// for the 3 next if conditions, no server needed, commands implemented locally
 	else if (strncmp(input, "!LIST", 5) == 0) {
