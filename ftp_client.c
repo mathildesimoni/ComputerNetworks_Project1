@@ -2,11 +2,11 @@
 #include<string.h>
 #include<sys/socket.h>
 #include<arpa/inet.h>
-#include <netinet/in.h>
+#include<netinet/in.h>
 #include<unistd.h>
 #include<stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include<sys/types.h>
+#include<sys/stat.h>
 
 // function declarations
 int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir_client, int* logged_in, char* cur_dir_server);
@@ -18,6 +18,7 @@ int download_file(int data_server_sd, char* file_name);
 int list_files(int data_server_sd);
 int display_user_commands();
 int change_directory(char* cur_dir_client, char* new_dir);
+int list_directory(char* cur_dir_client);
 
 // function definitions
 int main() {
@@ -185,12 +186,29 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	else if (strncmp(input, "PWD", 3) == 0) {
 		printf("PWD command typed \n");
+		
+		if (send(server_sd, input, strlen(input),0) < 0) {
+		    perror("send");
+		    return 0;
+		}
+
+		bzero(message, sizeof(message));
+		recv(server_sd, message, sizeof(message), 0);
+		// send current server directory to server (needed to check correct directory)
+		if (send(server_sd, cur_dir_server, strlen(cur_dir_server),0) < 0) {
+		    perror("send");
+		    return 0;
+		}
+
+		bzero(message, sizeof(message));
+		recv(server_sd, message, sizeof(message), 0);
 	}
 
 
 	// for the 3 next if conditions, no server needed, commands implemented locally
 	else if (strncmp(input, "!LIST", 5) == 0) {
 		printf("!LIST command typed \n");
+		list_directory(cur_dir_client);
 	}
 
 	else if (strncmp(input, "!CWD", 4) == 0) {
@@ -206,7 +224,8 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	else if (strncmp(input, "!PWD", 4) == 0) {
 		printf("!PWD command typed \n");
-	}
+		printf("Current client directory: %s\n", cur_dir_client);
+		}
 
 	// send to server
 	else if (strncmp(input, "QUIT", 4) == 0) {
@@ -419,6 +438,13 @@ int change_directory(char* cur_dir_client, char* new_dir){
     	return 0;
     }
     return -1;
+}
+
+int list_directory(char* cur_dir_client){
+	char cmd[40];
+	sprintf(cmd, "ls %s", cur_dir_client);
+	system(cmd);
+	return 0;
 }
 
 

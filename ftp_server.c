@@ -4,8 +4,8 @@
 #include<sys/socket.h>
 #include<arpa/inet.h>
 #include<unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include<sys/types.h>
+#include<sys/stat.h>
 
 #define LOGINFILE "users.txt"
 
@@ -256,6 +256,24 @@ int serve_client(int client_fd) {
 
 	else if (strncmp(message, "PWD", 3) == 0) {
 		printf("PWD command received\n");
+
+		bzero(&message, sizeof(message));
+		strcpy(message, "ready for PWD");
+		send(client_fd, message, strlen(message), 0);
+
+		bzero(&message, sizeof(message));
+		if (recv(client_fd, message, sizeof(message), 0) < 0) {
+			perror("recv");
+			return 0;
+		}
+		printf("current server dir: %s \n", message);
+		
+		char pwd_response[256];
+		sprintf(pwd_response, "257 %s", message );
+		bzero(&message, sizeof(message));
+		strcpy(message, pwd_response);
+		send(client_fd, message, strlen(message), 0);
+		bzero(&message, sizeof(message));
 	}
 
 	else if (strncmp(message, "QUIT", 4) == 0) {
