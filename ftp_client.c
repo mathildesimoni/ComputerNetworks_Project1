@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include<unistd.h>
 #include<stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 // function declarations
 int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir, int* logged_in);
@@ -15,6 +17,7 @@ int upload_file(int data_server_sd, char* file_name);
 int download_file(int data_server_sd, char* file_name);
 int list_files(int data_server_sd);
 int display_user_commands();
+int change_directory(char* cur_dirm, char* new_dir);
 
 // function definitions
 int main() {
@@ -94,7 +97,7 @@ int main() {
         	}	
         }
         bzero(buffer, sizeof(buffer));		
-        printf("Current user directory: %s\n", cur_dir);
+        printf("Current client directory: %s\n", cur_dir);
         printf("User logged in: %d \n", logged_in);
 	}
 	return 0;
@@ -110,8 +113,8 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	printf("\n");
 
 	// for USER, PASS, CWD, PWD, not preprocessing needed, directly send to server
-	if ((strncmp(input, "USER", 4) == 0) || (strncmp(input, "PASS", 4) == 0) || (strncmp(input, "CWD", 3) == 0) || (strncmp(input, "PWD", 3) == 0)) {
-		printf("USER, PASS, PWD or PWD command typed \n");
+	if ((strncmp(input, "USER", 4) == 0) || (strncmp(input, "PASS", 4) == 0)) {
+		printf("USER or PASS command typed \n");
 
 		if (send(server_sd, input, strlen(input),0) < 0) {
 		    perror("send");
@@ -136,6 +139,19 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		}
 	}
 
+	else if ((strncmp(input, "CWD", 3) == 0) || (strncmp(input, "PWD", 3) == 0)){
+		printf("PWD or PWD command typed \n");
+
+		if (send(server_sd, input, strlen(input),0) < 0) {
+		    perror("send");
+		    return 0;
+		}
+
+		// // wait for server to send response message
+		// recv(server_sd, message, sizeof(message), 0);
+		// printf("Response from server: %s \n", message);
+	}
+
 	// for the 3 next if conditions, no server needed, commands implemented locally
 	else if (strncmp(input, "!LIST", 5) == 0) {
 		printf("!LIST command typed \n");
@@ -143,11 +159,21 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	else if (strncmp(input, "!CWD", 4) == 0) {
 		printf("!CWD command typed \n");
+		char new_dir[256];
+		sscanf(input, "!CWD %s", &new_dir);
+
+		int result = change_directory(cur_dir, new_dir);
+		if (result == -1) {
+			printf("Error: could not change current client directory \n");
+		}
 	}
 
 	else if (strncmp(input, "!PWD", 4) == 0) {
 		printf("!PWD command typed \n");
 	}
+
+
+
 
 	// send to server
 	else if (strncmp(input, "QUIT", 4) == 0) {
@@ -162,9 +188,10 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		printf("Response from server: %s \n", message);  
 
 		if (strncmp(message, "221", 3) != 0) {
-			printf("Error: could not login \n");
-			return -1;
+			printf("Error: could not quit connection \n");
+			return 0;
 		}
+		return -1;
 	}
 
 	else if ((strncmp(input, "STOR", 4) == 0) || (strncmp(input, "RETR", 4) == 0) || (strncmp(input, "LIST", 4) == 0)) {
@@ -343,6 +370,23 @@ int display_user_commands() {
 	printf("- USER username: to start authentification \n- PASS password: to finish authentification (after USER command) \n- STOR filename: upload a local file from current client directory to current server directory \n- RETR filename: download a file from current server directory to current client directory \n- LIST: list all the files under current server directory \n- !LIST: list all the files under current client directory \n- CWD foldername: change current server directory \n- !CWD foldername: change current client directory \n- PWD: display current server directory \n- !PWD: display current client directory \n- QUIT: quit the FTP session and closes the control TCP connection \n");
 	printf("Please enter a command: ");
 	return 0;
+}
+
+int change_directory(char* cur_dir, char* new_dir){
+	// check new dir exists
+	printf("New dir requested: %s \n", new_dir);
+	char* path[256];
+	sprintf(path, "%s%s/", cur_dir, new_dir);
+	printf("new requested dir %s \n", path);
+
+	struct stat path_stat;
+	int is_dir = stat(path, &path_stat);
+
+    if (S_ISDIR(path_stat.st_mode)) {
+    	strcpy(cur_dir, path);
+    	return 0;
+    }
+    return -1;
 }
 
 
