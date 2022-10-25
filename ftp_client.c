@@ -7,7 +7,7 @@
 #include<stdlib.h>
 
 // function declarations
-int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number);
+int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir, int* logged_in);
 int check_input(char* input);
 int create_data_socket(int new_port, char* my_ip);
 int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int data_client_sd);
@@ -55,6 +55,9 @@ int main() {
 	int request_number = 1;
 	int response; // will store server responses
 	int display_commands = 1;
+	char cur_dir[256];
+	strcpy(cur_dir, "no_dir");
+	int logged_in = 0;
 
 	while(1) {
 
@@ -80,7 +83,7 @@ int main() {
         	printf("Invalid input: please enter the command again\n");
         }
         else { // input is valid, proceed with the request
-        	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number);
+        	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir, &logged_in);
         	if (response == 0) {
         		printf("Error: could not send command to server \n");
         	}
@@ -90,13 +93,15 @@ int main() {
 	            break;
         	}	
         }
-        bzero(buffer, sizeof(buffer));			
+        bzero(buffer, sizeof(buffer));		
+        printf("Current user directory: %s\n", cur_dir);
+        printf("User logged in: %d \n", logged_in);
 	}
 	return 0;
 }
 
 // returns 0 if error
-int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number) {
+int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir, int* logged_in) {
 
 	int my_ip_arr[4];
 	char message[256];
@@ -115,8 +120,20 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 		// wait for server to send response message
 		recv(server_sd, message, sizeof(message), 0);
-		printf("Response from server: %s \n", message);  
+		printf("Response from server: %s \n", message);
 
+		if ((strncmp("USER", input, 4) == 0) && (strncmp("331", message, 3) == 0)){
+			char username[256];
+			char tmp_dir[256];
+			sscanf(input, "USER %s", &username);
+			printf("Username: %s \n", username);
+			sprintf(tmp_dir, "client_directories/%s/", username);
+			strcpy(cur_dir, tmp_dir);
+		}
+
+		if ((strncmp("PASS", input, 4) == 0) && (strncmp("230", message, 3) == 0)){
+			*logged_in = 1;
+		}
 	}
 
 	// for the 3 next if conditions, no server needed, commands implemented locally
