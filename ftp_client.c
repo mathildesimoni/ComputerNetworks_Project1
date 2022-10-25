@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 // function declarations
-int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir, int* logged_in);
+int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir_client, int* logged_in, char* cur_dir_server);
 int check_input(char* input);
 int create_data_socket(int new_port, char* my_ip);
 int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int data_client_sd);
@@ -17,7 +17,7 @@ int upload_file(int data_server_sd, char* file_name);
 int download_file(int data_server_sd, char* file_name);
 int list_files(int data_server_sd);
 int display_user_commands();
-int change_directory(char* cur_dirm, char* new_dir);
+int change_directory(char* cur_dir_client, char* new_dir);
 
 // function definitions
 int main() {
@@ -58,8 +58,12 @@ int main() {
 	int request_number = 1;
 	int response; // will store server responses
 	int display_commands = 1;
-	char cur_dir[256];
-	strcpy(cur_dir, "no_dir");
+	char cur_dir_client[256];
+	strcpy(cur_dir_client, "no_dir");
+
+	char cur_dir_server[256];
+	strcpy(cur_dir_server, "no_dir");
+
 	int logged_in = 0;
 
 	while(1) {
@@ -86,7 +90,7 @@ int main() {
         	printf("Invalid input: please enter the command again\n");
         }
         else { // input is valid, proceed with the request
-        	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir, &logged_in);
+        	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir_client, &logged_in, cur_dir_server);
         	if (response == 0) {
         		printf("Error: could not send command to server \n");
         	}
@@ -97,14 +101,15 @@ int main() {
         	}	
         }
         bzero(buffer, sizeof(buffer));		
-        printf("Current client directory: %s\n", cur_dir);
+        printf("Current client directory: %s\n", cur_dir_client);
+        printf("Current server directory: %s\n", cur_dir_server);
         printf("User logged in: %d \n", logged_in);
 	}
 	return 0;
 }
 
 // returns 0 if error
-int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir, int* logged_in) {
+int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir_client, int* logged_in, char* cur_dir_server) {
 
 	int my_ip_arr[4];
 	char message[256];
@@ -127,11 +132,15 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 		if ((strncmp("USER", input, 4) == 0) && (strncmp("331", message, 3) == 0)){
 			char username[256];
-			char tmp_dir[256];
+			char tmp_dir_client[256];
 			sscanf(input, "USER %s", &username);
 			printf("Username: %s \n", username);
-			sprintf(tmp_dir, "client_directories/%s/", username);
-			strcpy(cur_dir, tmp_dir);
+			sprintf(tmp_dir_client, "client_directories/%s/", username);
+			strcpy(cur_dir_client, tmp_dir_client);
+
+			char tmp_dir_server[256];
+			sprintf(tmp_dir_server, "server_directories/%s/", username);
+			strcpy(cur_dir_server, tmp_dir_server);
 		}
 
 		if ((strncmp("PASS", input, 4) == 0) && (strncmp("230", message, 3) == 0)){
@@ -146,6 +155,27 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		    perror("send");
 		    return 0;
 		}
+
+		// waits the server is ready to receive username
+		recv(server_sd, message, sizeof(message), 0);
+
+		// send username to server (needed to check correct directory)
+		char username[256];
+		sscanf(cur_dir_client, "client_directories/%s/*", &username);
+		username[strlen(username)-1] = '\0';
+		printf("Username: %s \n", username);
+
+		if (send(server_sd, username, strlen(username),0) < 0) {
+		    perror("send");
+		    return 0;
+		}
+
+
+
+
+
+
+
 
 		// // wait for server to send response message
 		// recv(server_sd, message, sizeof(message), 0);
@@ -162,7 +192,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		char new_dir[256];
 		sscanf(input, "!CWD %s", &new_dir);
 
-		int result = change_directory(cur_dir, new_dir);
+		int result = change_directory(cur_dir_client, new_dir);
 		if (result == -1) {
 			printf("Error: could not change current client directory \n");
 		}
@@ -171,9 +201,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	else if (strncmp(input, "!PWD", 4) == 0) {
 		printf("!PWD command typed \n");
 	}
-
-
-
 
 	// send to server
 	else if (strncmp(input, "QUIT", 4) == 0) {
@@ -244,7 +271,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		    return 0;
 		}
 	}
-
 	return 1;
 }
 
@@ -372,18 +398,18 @@ int display_user_commands() {
 	return 0;
 }
 
-int change_directory(char* cur_dir, char* new_dir){
+int change_directory(char* cur_dir_client, char* new_dir){
 	// check new dir exists
 	printf("New dir requested: %s \n", new_dir);
 	char* path[256];
-	sprintf(path, "%s%s/", cur_dir, new_dir);
+	sprintf(path, "%s%s/", cur_dir_client, new_dir);
 	printf("new requested dir %s \n", path);
 
 	struct stat path_stat;
 	int is_dir = stat(path, &path_stat);
 
     if (S_ISDIR(path_stat.st_mode)) {
-    	strcpy(cur_dir, path);
+    	strcpy(cur_dir_client, path);
     	return 0;
     }
     return -1;

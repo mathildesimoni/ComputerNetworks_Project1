@@ -222,10 +222,49 @@ int serve_client(int client_fd) {
 
 	else if (strncmp(message, "CWD", 3) == 0) {
 		printf("CWD command received\n");
+
+		bzero(&message, sizeof(message));
+		strcpy(message, "please send username");
+		send(client_fd, message, strlen(message), 0);
+
+		bzero(&message, sizeof(message));
+		if (recv(client_fd, message, sizeof(message), 0) < 0) {
+				perror("recv");
+				return 0;
+		}
+		printf("username: %s \n", message);
+
+
+
+
+
+
+
+
+		// server sends acknowledgement to client that it received the port
+		// bzero(&message, sizeof(message));
+		// char [256];
+		// sscanf(input, "CWD %s", &username);
+
+		// strcpy(message, "200 directory changed to pathname/foldername.");
+		// send(client_fd, message, strlen(message), 0);
+		// bzero(&message, sizeof(message));
 	}
 
 	else if (strncmp(message, "PWD", 3) == 0) {
 		printf("PWD command received\n");
+
+		bzero(&message, sizeof(message));
+		strcpy(message, "please send username");
+		send(client_fd, message, strlen(message), 0);
+
+		bzero(&message, sizeof(message));
+		if (recv(client_fd, message, sizeof(message), 0) < 0) {
+				perror("recv");
+				return 0;
+		}
+		printf("username: %s \n", message);
+		
 	}
 
 	else if (strncmp(message, "QUIT", 4) == 0) {
