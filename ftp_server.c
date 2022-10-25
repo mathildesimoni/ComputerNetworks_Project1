@@ -5,12 +5,16 @@
 #include<arpa/inet.h>
 #include<unistd.h>
 
+#define LOGINFILE "users.txt"
+
 int serve_client(int client_fd);
 int check_input(char* input);
 int create_data_socket(char* client_ip, int client_port);
 int handle_STOR(int data_sd, char* message);
 int handle_RETR(int data_sd, char* message);
 int handle_LIST(int data_sd, char* message);
+int handle_loginuser(int client_fd, char* message);
+int handle_loginpass(int client_fd, char* message);
 
 int main()
 {
@@ -194,10 +198,14 @@ int serve_client(int client_fd) {
 
 	else if (strncmp(message, "USER", 4) == 0) {
 		printf("USER command received\n");
+		printf("Checking for usernames...\n");
+		handle_loginuser(client_fd, message);
 	}
 
 	else if (strncmp(message, "PASS", 4) == 0) {
 		printf("PASS command received\n");
+		printf("Checking for passwords...\n");
+		handle_loginpass(client_fd, message);
 	}
 
 	else if (strncmp(message, "STOR", 4) == 0) {
@@ -318,8 +326,78 @@ int handle_LIST(int data_sd, char* message) {
     return 1;
 }
 
+int handle_loginuser(int client_fd, char* message){
+	FILE *fp;
+    char fname[256],fpass[256],user[256],buffer[256];   
+	sscanf(message, "USER %s\n", &user);
 
+	user[strcspn (user, "\n")] = 0;  
 
+    if (!(fp = fopen (LOGINFILE, "r"))) {    /* open/validate file open */
+        perror ("fopen-file");
+        exit (EXIT_FAILURE);
+    }
+
+    if (fscanf (fp, " %255s%255s", fname, fpass) != 2) {   /* read fname/fpin */
+        fputs ("error: read of fname failed.\n", stderr);
+        exit (EXIT_FAILURE);
+    }
+    fclose (fp);
+
+    if ((strcmp(user, fname) == 0)) {  /* validate login */
+		bzero(buffer, sizeof(buffer));
+		strcpy(buffer, "331 Username OK, need password.");
+		send(client_fd, buffer, strlen(buffer), 0);
+		bzero(&buffer,sizeof(buffer));
+		
+        return 1;   /* return success */
+    }
+
+	printf("Failed login. Try again.\n");
+	bzero(buffer, sizeof(buffer));
+	strcpy(buffer, "530 Not logged in.");
+	send(client_fd, buffer, strlen(buffer), 0);
+	bzero(&buffer,sizeof(buffer));
+
+    return 0;       /* return failure */
+}
+
+int handle_loginpass(int client_fd, char* message){
+	FILE *fp;
+    char fname[256],fpass[256],pass[256],buffer[256];   
+	sscanf(message, "PASS %s\n", &pass);
+
+	pass[strcspn (pass, "\n")] = 0;  
+
+    if (!(fp = fopen (LOGINFILE, "r"))) {    /* open/validate file open */
+        perror ("fopen-file");
+        exit (EXIT_FAILURE);
+    }
+
+    if (fscanf (fp, " %255s%255s", fname, fpass) != 2) {   /* read fname/fpin */
+        fputs ("error: read of fpin failed.\n", stderr);
+        exit (EXIT_FAILURE);
+    }
+    fclose (fp);
+
+    if ((strcmp(pass, fpass) == 0)) {  /* validate login */
+        printf ("You have successfully logged in!\n");
+		bzero(buffer, sizeof(buffer));
+		strcpy(buffer, "230 User logged in, proceed.");
+		send(client_fd, buffer, strlen(buffer), 0);
+		bzero(&buffer,sizeof(buffer));
+
+        return 1;   /* return success */
+    }
+
+	printf("Failed login. Try again.\n");
+	bzero(buffer, sizeof(buffer));
+	strcpy(buffer, "530 Not logged in.");
+	send(client_fd, buffer, strlen(buffer), 0);
+	bzero(&buffer,sizeof(buffer));
+
+    return 0;       /* return failure */
+}
 
 
 // draft

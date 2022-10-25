@@ -107,10 +107,16 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	// for USER, PASS, CWD, PWD, not preprocessing needed, directly send to server
 	if ((strncmp(input, "USER", 4) == 0) || (strncmp(input, "PASS", 4) == 0) || (strncmp(input, "CWD", 3) == 0) || (strncmp(input, "PWD", 3) == 0)) {
 		printf("USER, PASS, PWD or PWD command typed \n");
+
 		if (send(server_sd, input, strlen(input),0) < 0) {
 		    perror("send");
 		    return 0;
 		}
+
+		// wait for server to send response message
+		recv(server_sd, message, sizeof(message), 0);
+		printf("Response from server: %s \n", message);  
+
 	}
 
 	// for the 3 next if conditions, no server needed, commands implemented locally
@@ -138,7 +144,8 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		recv(server_sd, message, sizeof(message), 0);
 		printf("Response from server: %s \n", message);  
 
-		if (strncmp(message, "221", 3) == 0) {
+		if (strncmp(message, "221", 3) != 0) {
+			printf("Error: could not login \n");
 			return -1;
 		}
 	}
