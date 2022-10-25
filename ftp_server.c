@@ -18,6 +18,8 @@ int handle_LIST(int data_sd, char* message);
 int handle_loginuser(int client_fd, char* message);
 int handle_loginpass(int client_fd, char* message);
 int change_directory(char* cur_dir_server, char* new_dir);
+int check_dir_exists(char* path);
+int check_file_exists(char* path);
 
 int main()
 {
@@ -176,20 +178,30 @@ int serve_client(int client_fd) {
 				printf("STOR command received\n");
 				data_transfer = handle_STOR(data_sd, message);
 			}
-
 			else if (strncmp(message, "RETR", 4) == 0) {
 				printf("RETR command received\n");
 				data_transfer = handle_RETR(data_sd, message);
 			}
-
 			else if (strncmp(message, "LIST", 4) == 0) {
 				printf("LIST command received\n");
 				data_transfer = handle_LIST(data_sd, message);
 			}
-
-			if (data_transfer == 0) { return 0; }
-
-		    close(data_sd);
+			
+			bzero(&message, sizeof(message));
+			if (data_transfer == 0) { 
+				close(data_sd);
+				strcpy(message, "550 No such file or directory");
+				send(client_fd, message, strlen(message), 0);
+				bzero(&message, sizeof(message));
+				return 0; 
+			}
+			else { // data_transfer = 1
+				close(data_sd);
+				strcpy(message, "226 Transfer completed");
+				send(client_fd, message, strlen(message), 0);
+				bzero(&message, sizeof(message));
+				return 1;
+			}
 		    // return -2;
 
 		}
@@ -350,15 +362,38 @@ int handle_STOR(int data_sd, char* message) {
 }
 
 int handle_RETR(int data_sd, char* message) {
+
 	char buffer[256]; // 256 is a ramdom number for now
 	bzero(buffer, sizeof(buffer));
 
-	// send data to client
-    strcpy(buffer, "This is the first line of the file");
-    send(data_sd, buffer, strlen(buffer), 0);
-    bzero(&buffer,sizeof(buffer));
+	char* path[256];
+	sscanf(message, "RETR %s", &path);
+	printf("Path to file: %s \n", path);
 
-    return 1;
+	// check if file exists in current server directory
+	if (check_file_exists(path) == -1) {
+		strcpy(buffer, "no file");
+		send(data_sd, buffer, strlen(buffer), 0);
+		bzero(&buffer,sizeof(buffer));
+		return 0;
+	}
+
+	// if file exists, starts transfer
+	FILE *fp;
+
+    if (!(fp = fopen (path, "r"))) {    /* open/validate file open */
+        perror ("fopen-file");
+        strcpy(buffer, "no file");
+		send(data_sd, buffer, strlen(buffer), 0);
+		bzero(&buffer,sizeof(buffer));
+        return 0; // failure
+    }
+    while(fgets(buffer, 256, fp)) {
+	    send(data_sd, buffer, strlen(buffer), 0);
+	    bzero(&buffer,sizeof(buffer));
+	}
+    fclose(fp);
+    return 1; // success
 }
 
 int handle_LIST(int data_sd, char* message) {
@@ -453,82 +488,24 @@ int change_directory(char* cur_dir_server, char* new_dir){
 	sprintf(path, "%s%s/", cur_dir_server, new_dir);
 	printf("new requested dir %s \n", path);
 
-	struct stat path_stat;
-	int is_dir = stat(path, &path_stat);
-
-    if (S_ISDIR(path_stat.st_mode)) {
-    	strcpy(cur_dir_server, path);
-    	return 0;
-    }
-    return -1;
+	if (check_dir_exists(path) == 0) {
+		strcpy(cur_dir_server, path);
+		printf("EXISTS\n");
+		return 0;
+	}
+	return -1;
 }
 
-// draft
+int check_dir_exists(char* path){
+	struct stat path_stat;
+	if (stat(path, &path_stat) == 0 && S_ISDIR(path_stat.st_mode)) {return 0; }
+	return -1;
+}
 
-		// // first, get client address and port
-		// int client_ip_arr[4];
-		// int client_port_arr[2];
-		// char client_ip[30];
-		// int client_port;
-		// sscanf(message, "PORT %d,%d,%d,%d,%d,%d", &client_ip_arr[0], &client_ip_arr[1], &client_ip_arr[2], &client_ip_arr[3], &client_port_arr[0], &client_port_arr[1]);
-		// sprintf(client_ip, "%d.%d.%d.%d", client_ip_arr[0], client_ip_arr[1], client_ip_arr[2],client_ip_arr[3]);
-		// client_port = client_port_arr[0] * 256 + client_port_arr[1];
-		// printf("client IP: %s\n", client_ip);
-		// printf("client PORT: %d\n", client_port);
-
-		// int data_sd = create_data_socket(client_ip, client_port);
-		// if (data_sd == -1) { return 0; }
-	 //   	printf("Connected to client on new port \n");
-
-	 //   	// server sends acknowledgement to client that it received the port
-		// bzero(&message, sizeof(message));
-		// strcpy(message, "200 PORT command successful");
-		// send(client_fd, message, strlen(message), 0);
-		// bzero(&message, sizeof(message));
-
-		// // start exchange of data
-		// // waits for RETR, LIST or STOR command
-		// if (recv(client_fd, message, sizeof(message), 0) < 0) {
-		// 	perror("recv");
-		// 	return 0;
-		// }
-
-		// int data_transfer;
-
-		// if (strncmp(message, "STOR", 4) == 0) {
-		// 	printf("STOR command received\n");
-		// 	data_transfer = handle_STOR(data_sd, message);
-		// }
-
-		// else if (strncmp(message, "RETR", 4) == 0) {
-		// 	printf("RETR command received\n");
-		// 	data_transfer = handle_RETR(data_sd, message);
-		// }
-
-		// else if (strncmp(message, "LIST", 4) == 0) {
-		// 	printf("LIST command received\n");
-		// 	data_transfer = handle_LIST(data_sd, message);
-		// }
-
-		// if (data_transfer == 0) { return 0; }
-
-
-
-
-
-	 //    // send data to client
-	 // //    strcpy(buffer, "This is the first line of the file from server");
-	 // //    send(data_sd, buffer, strlen(buffer), 0);
-	 // //    bzero(&buffer,sizeof(buffer));
-
-	 // //    // receive data from client
-	 // //    recv(data_sd, buffer, sizeof(buffer), 0);
-		// // printf("Line of file received from client: %s \n", buffer);
-		// // bzero(&buffer,sizeof(buffer));
-
-	 //    close(data_sd);
-
-
-
+int check_file_exists(char* path){
+	struct stat path_stat;
+	if (stat(path, &path_stat) == 0) {return 0; }
+	return -1;
+}
 
 
