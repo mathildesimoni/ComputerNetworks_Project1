@@ -423,10 +423,12 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
         return 0; // failure
     }
     while(fgets(buffer, 256, fp)) {
+		// buffer[strlen(buffer)-1] = '\0';
 		printf("%s\n", buffer);
 		send(data_server_sd, buffer, strlen(buffer), 0);
 	    bzero(&buffer,sizeof(buffer));
 	}
+	printf("Reached end of file \n");
     fclose(fp);
     return 1; // success
 }
