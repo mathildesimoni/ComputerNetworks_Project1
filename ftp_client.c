@@ -418,18 +418,19 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
 	// if file exists, starts transfer
 	FILE *fp;
 
-    if (!(fp = fopen (client_path, "r"))) {    /* open/validate file open */
+    if (!(fp = fopen (client_path, "rb"))) {    /* open/validate file open */
         perror ("fopen-file");
         strcpy(buffer, "no file");
-		send(data_server_sd, buffer, strlen(buffer), 0);
+		send(data_server_sd, buffer, sizeof(buffer), 0);
 		bzero(&buffer,sizeof(buffer));
         return 0; // failure
     }
-    while(fgets(buffer, 256, fp)) {
-		printf("%s", buffer);
-		send(data_server_sd, buffer, strlen(buffer), 0);
-	    bzero(&buffer,sizeof(buffer));
+    while(fgets(buffer, sizeof(buffer), fp) != NULL) {
+		send(data_server_sd, buffer, sizeof(buffer), 0);
+		// send(data_server_sd, buffer, strlen(buffer), 0);
+		bzero(&buffer,sizeof(buffer));
 	}
+
     fclose(fp);
     return 1; // success
 }
@@ -452,7 +453,7 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 	else {
 		FILE *fp;
 
-	    if (!(fp = fopen (client_path, "w"))) {    /* open/validate file open */
+	    if (!(fp = fopen (client_path, "wb"))) {    /* open/validate file open */
 	        perror ("fopen-file");
 	        return 0;
 	    }
@@ -466,10 +467,10 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 	    	recv(data_server_sd, buffer, sizeof(buffer), 0);
 	    	printf("%s\n", buffer);
 	    	if (strlen(buffer) > 0) {
-	    		printf("End of file now \n");
 	    		fprintf(fp, "%s \n", buffer);
 	    	}
 	    	else {
+				printf("End of file now \n");
 	    		printf("break\n");
 	    		break;
 	    	}

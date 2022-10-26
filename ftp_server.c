@@ -366,29 +366,25 @@ int handle_STOR(int data_sd, char* message) {
 	else {
 		FILE *fp;
 
-	    if (!(fp = fopen (path, "w"))) {    /* open/validate file open */
+	    if (!(fp = fopen (path, "wb"))) {    /* open/validate file open */
 	        perror ("fopen-file");
 	        return 0;
 	    }
 
 	    // write first line already received in buffer to file
 	    fprintf(fp, "%s", buffer);
-	    // fprintf(fp, "%s \n", buffer);
 
 	    while (1) {
 	    	bzero(buffer, sizeof(buffer));
-			printf("%s", buffer);
 	    	recv(data_sd, buffer, sizeof(buffer), 0);
-			printf("%s", buffer);
-	    	if (strlen(buffer) > 0) {
-	    		printf("End of file now \n");
-	    		fprintf(fp, "%s \n", buffer);
-	    	}
-	    	else {
-	    		printf("break\n");
-	    		break;
-	    	}
-			printf("testing file end");
+	    	 if (sizeof(buffer) > 0) {
+	    	 	fprintf(fp, "%s", buffer);
+				fflush(fp);  //Flushes buffer and prints to a file
+	    	 }
+	    	 else {
+				printf("\nEnd of file now \n");
+	    	 	break;
+	    	 }
 	    }
 
 	    fclose(fp);
@@ -417,7 +413,7 @@ int handle_RETR(int data_sd, char* message) {
 	// if file exists, starts transfer
 	FILE *fp;
 
-    if (!(fp = fopen (path, "r"))) {    /* open/validate file open */
+    if (!(fp = fopen (path, "rb"))) {    /* open/validate file open */
         perror ("fopen-file");
         strcpy(buffer, "no file");
 		send(data_sd, buffer, strlen(buffer), 0);
