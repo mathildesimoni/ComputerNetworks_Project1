@@ -102,9 +102,9 @@ int main() {
         	}	
         }
         bzero(buffer, sizeof(buffer));		
-        printf("Current client directory: %s\n", cur_dir_client);
-        printf("Current server directory: %s\n", cur_dir_server);
-        printf("User logged in: %d \n", logged_in);
+        // printf("Current client directory: %s\n", cur_dir_client);
+        // printf("Current server directory: %s\n", cur_dir_server);
+        // printf("User logged in: %d \n", logged_in);
 	}
 	return 0;
 }
@@ -120,7 +120,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	// for USER, PASS, CWD, PWD, not preprocessing needed, directly send to server
 	if ((strncmp(input, "USER", 4) == 0) || (strncmp(input, "PASS", 4) == 0)) {
-		printf("USER or PASS command typed \n");
+		// printf("USER or PASS command typed \n");
 
 		if (send(server_sd, input, strlen(input),0) < 0) {
 		    perror("send");
@@ -135,7 +135,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			char username[256];
 			char tmp_dir_client[256];
 			sscanf(input, "USER %s", &username);
-			printf("Username: %s \n", username);
+			// printf("Username: %s \n", username);
 			sprintf(tmp_dir_client, "client_directories/%s/", username);
 			strcpy(cur_dir_client, tmp_dir_client);
 
@@ -173,14 +173,11 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		// wait for answer from server
 		bzero(message, sizeof(message));
 		recv(server_sd, message, sizeof(message), 0);
+		printf("Response from server: %s \n", message);
 		if (strncmp(message, "200", 3) == 0) {
-			printf("Current server directory updated \n");
 			char* path[256];
 			sprintf(path, "%s%s/", cur_dir_server, new_dir);
 			strcpy(cur_dir_server, path);
-		}
-		else {
-			printf("Error: could not change current server directory \n");
 		}
 	}
 
@@ -502,17 +499,16 @@ int display_user_commands() {
 
 int change_directory(char* cur_dir_client, char* new_dir){
 	// check new dir exists
-	printf("New dir requested: %s \n", new_dir);
 	char* path[256];
 	sprintf(path, "%s%s/", cur_dir_client, new_dir);
-	printf("new requested dir %s \n", path);
 
 	struct stat path_stat;
 	int is_dir = stat(path, &path_stat);
 
     if (S_ISDIR(path_stat.st_mode)) {
     	strcpy(cur_dir_client, path);
-    	return 0;
+    	printf("Client directory updated: %s \n", path);
+		return 0;
     }
     return -1;
 }

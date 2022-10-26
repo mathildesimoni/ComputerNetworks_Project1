@@ -256,11 +256,12 @@ int serve_client(int client_fd) {
 		int result = change_directory(message, new_dir);
 		if (result == -1) {
 			printf("Error: could not change current server directory \n");
-			strcpy(message, "invalid directory");
+			bzero(&message, sizeof(message));
+			strcpy(message, "550 No such file or directory.");
 		}
 		else {
 			char tmp_response[256];
-			sprintf(tmp_response, "200 directory changed to %s%s/", message, new_dir);
+			sprintf(tmp_response, "200 directory changed to %s", message);
 			bzero(&message, sizeof(message));
 			strcpy(message, tmp_response);
 		}
@@ -542,14 +543,12 @@ int handle_loginpass(int client_fd, char* message){
 
 int change_directory(char* cur_dir_server, char* new_dir){
 	// check new dir exists
-	printf("New dir requested: %s \n", new_dir);
 	char* path[256];
 	sprintf(path, "%s%s/", cur_dir_server, new_dir);
 	printf("new requested dir %s \n", path);
 
 	if (check_dir_exists(path) == 0) {
 		strcpy(cur_dir_server, path);
-		printf("EXISTS\n");
 		return 0;
 	}
 	return -1;
