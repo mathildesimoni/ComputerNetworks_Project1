@@ -6,6 +6,7 @@
 #include<unistd.h>
 #include<sys/types.h>
 #include<sys/stat.h>
+#include <dirent.h>
 
 #define LOGINFILE "users.txt"
 
@@ -376,7 +377,9 @@ int handle_STOR(int data_sd, char* message) {
 
 	    while (1) {
 	    	bzero(buffer, sizeof(buffer));
+			printf("%s", buffer);
 	    	recv(data_sd, buffer, sizeof(buffer), 0);
+			printf("%s", buffer);
 	    	if (strlen(buffer) > 0) {
 	    		printf("End of file now \n");
 	    		fprintf(fp, "%s \n", buffer);
@@ -385,6 +388,7 @@ int handle_STOR(int data_sd, char* message) {
 	    		printf("break\n");
 	    		break;
 	    	}
+			printf("testing file end");
 	    }
 
 	    fclose(fp);
@@ -431,11 +435,35 @@ int handle_RETR(int data_sd, char* message) {
 int handle_LIST(int data_sd, char* message) {
 	char buffer[256]; // 256 is a ramdom number for now
 	bzero(buffer, sizeof(buffer));
+	
+	char* path[256];
+	sscanf(message, "LIST %s", &path);
+	printf("Path to directory: %s \n", path);
 
-	// send data to client
-    strcpy(buffer, "file 1, file 2, file 3");
-    send(data_sd, buffer, strlen(buffer), 0);
-    bzero(&buffer,sizeof(buffer));
+	// check if file exists in current server directory
+	if (check_dir_exists(path) == -1) {
+		strcpy(buffer, "no file");
+		send(data_sd, buffer, strlen(buffer), 0);
+		bzero(&buffer,sizeof(buffer));
+		return 0;
+	}
+
+	DIR *d;
+    struct dirent *dir;
+	char* d_buffer[256];
+    d = opendir(path);
+    if (d)
+    {
+        while ((dir = readdir(d)) != NULL)
+        {
+            //printf("%s\n", dir->d_name);
+			sprintf(d_buffer, "%s ", dir->d_name);
+			bzero(&buffer, sizeof(buffer));
+			strcpy(buffer, d_buffer);
+			send(data_sd, buffer, strlen(buffer), 0);
+        }
+        closedir(d);
+    }
 
     return 1;
 }
