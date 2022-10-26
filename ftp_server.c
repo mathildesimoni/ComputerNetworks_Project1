@@ -15,7 +15,7 @@
 int main() {
 	//1. socket();
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-	// printf("server_fd = %d \n", server_fd);
+
 	if (server_fd < 0) {
 		perror("socket");
 		return -1;
@@ -49,10 +49,10 @@ int main() {
 	int max_fd = server_fd;
 	int result = 0;
 	int to_stop = 0;
+	char init_message[] = "220 Service ready for new user.";
 
 	//4. accept()
 	while(1) {	
-		// printf("max_fd=%d\n",max_fd);
 		ready_fdset = full_fdset;
 		if (to_stop == 1){
 			break;
@@ -66,13 +66,17 @@ int main() {
 			if (FD_ISSET(fd, &ready_fdset)) {
 				if (fd == server_fd) {
 					int new_fd = accept(server_fd, NULL, NULL);
-					// printf("client fd = %d \n", new_fd);
+
+					// let the client know the server is ready
+					send(new_fd, init_message, strlen(init_message), 0);
+
 					FD_SET(new_fd, &full_fdset);
 					if (new_fd > max_fd) max_fd = new_fd;    //Update the max_fd if new socket has higher FD
 				}
 				else {
 					printf("\n");
 					result = serve_client(fd);
+					// need to do 0 option to serve client
 					if (result == -1){ // if client disconnected
 						FD_CLR(fd,&full_fdset);
 					}
@@ -117,14 +121,6 @@ int serve_client(int client_fd) {
 		return -1;
 	}
 
-	// check validity of input
-	if (check_input(message) == 0){
-		printf("Invalid input: please enter the command again\n");
-		return 0;
-	}
-
-	printf("Message from client: %s \n", message);
-
 	// check command
 	if (strncmp(message, "PORT", 4) == 0){
 		printf("PORT command received\n");
@@ -151,7 +147,7 @@ int serve_client(int client_fd) {
 
 		   	// server sends acknowledgement to client that it received the port
 			bzero(&message, sizeof(message));
-			strcpy(message, "200 PORT command successful");
+			strcpy(message, "200 PORT command successful.");
 			send(client_fd, message, strlen(message), 0);
 			bzero(&message, sizeof(message));
 
@@ -176,18 +172,18 @@ int serve_client(int client_fd) {
 				printf("LIST command received\n");
 				data_transfer = handle_LIST(data_sd, message);
 			}
-			
+
 			bzero(&message, sizeof(message));
 			if (data_transfer == 0) { 
 				close(data_sd);
-				strcpy(message, "550 No such file or directory");
+				strcpy(message, "550 No such file or directory.");
 				send(client_fd, message, strlen(message), 0);
 				bzero(&message, sizeof(message));
 				return 0; 
 			}
 			else { // data_transfer = 1
 				close(data_sd);
-				strcpy(message, "226 Transfer completed");
+				strcpy(message, "226 Transfer completed.");
 				send(client_fd, message, strlen(message), 0);
 				bzero(&message, sizeof(message));
 				return 1;
@@ -250,7 +246,7 @@ int serve_client(int client_fd) {
 		}
 		else {
 			char tmp_response[256];
-			sprintf(tmp_response, "200 directory changed to %s", message);
+			sprintf(tmp_response, "200 directory changed to %s.", message);
 			bzero(&message, sizeof(message));
 			strcpy(message, tmp_response);
 		}
@@ -283,7 +279,7 @@ int serve_client(int client_fd) {
 		printf("QUIT command received\n");
 
 		bzero(&message, sizeof(message));
-		strcpy(message, "221 Service closing control connection");
+		strcpy(message, "221 Service closing control connection.");
 		send(client_fd, message, strlen(message), 0);
 		bzero(&message, sizeof(message));
 
@@ -291,12 +287,13 @@ int serve_client(int client_fd) {
 		printf("Client disconnected \n");
 		return -1;
 	}
-	return 1;
-}
+	else { // invalid command
+		bzero(&message, sizeof(message));
+		strcpy(message, "202 Command not implemented.");
+		send(client_fd, message, strlen(message), 0);
+		bzero(&message, sizeof(message));
+	}
 
-// return 0 if invalid command or 1 if valid command
-int check_input(char* input) {
-	//  need to implement this function
 	return 1;
 }
 

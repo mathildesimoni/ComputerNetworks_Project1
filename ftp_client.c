@@ -42,13 +42,14 @@ int main() {
     unsigned short my_port = ntohs(my_addr.sin_port);
     inet_ntop(AF_INET, &(my_addr.sin_addr), my_ip, INET_ADDRSTRLEN);
 
-    printf("Client connected to server at %s:%hu \n", my_ip, my_port);
+    // printf("Client connected to server at %s:%hu \n", my_ip, my_port);
+	printf("To display available commands, enter \"commands\" \n");
 
 	char buffer[256]; // will store user input
 	bzero(buffer, sizeof(buffer));
-	int request_number = 1;
+	int request_number = 0;
 	int response; // will store server responses
-	int display_commands = 1;
+	int display_commands = 0;
 	char cur_dir_client[256];
 	strcpy(cur_dir_client, "no_dir");
 
@@ -57,13 +58,16 @@ int main() {
 
 	int logged_in = 0;
 
+	recv(server_sd, buffer, sizeof(buffer), 0);
+	printf("%s \n", buffer);
+	bzero(buffer, sizeof(buffer));
+
 	while(1) {
 
 		if (display_commands == 1) {
 			display_commands = display_user_commands();
 		}
 		else {
-			printf("\nTo display available commands, enter \"commands\" \n");
 			printf("ftp> ");
 		}		
 		
@@ -77,10 +81,10 @@ int main() {
         }
 
         // check input
-        else if (check_input(buffer) == 0) {
-        	printf("Invalid input: please enter the command again\n");
+        else if (check_input_port(buffer) == 0) {
+        	printf("You cannot explicitely send a PORT command \n");
         }
-        else { // input is valid, proceed with the request
+        else { // proceed with the request
         	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir_client, &logged_in, cur_dir_server);
         	// if (response == 0) {
         	// 	printf("Error: could not send command to server \n");
@@ -106,8 +110,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	char message[256];
 	bzero(message, sizeof(message));
 
-	printf("\n");
-
 	// for USER, PASS, CWD, PWD, not preprocessing needed, directly send to server
 	if ((strncmp(input, "USER", 4) == 0) || (strncmp(input, "PASS", 4) == 0)) {
 		// printf("USER or PASS command typed \n");
@@ -119,7 +121,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 		// wait for server to send response message
 		recv(server_sd, message, sizeof(message), 0);
-		printf("Response from server: %s \n", message);
+		printf("%s \n", message);
 
 		if ((strncmp("USER", input, 4) == 0) && (strncmp("331", message, 3) == 0)){
 			char username[256];
@@ -163,7 +165,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		// wait for answer from server
 		bzero(message, sizeof(message));
 		recv(server_sd, message, sizeof(message), 0);
-		printf("Response from server: %s \n", message);
+		printf("%s \n", message);
 		if (strncmp(message, "200", 3) == 0) {
 			char* path[256];
 			sprintf(path, "%s%s/", cur_dir_server, new_dir);
@@ -189,9 +191,8 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 		bzero(message, sizeof(message));
 		recv(server_sd, message, sizeof(message), 0);
-		printf("Response from server: %s\n", message);
+		printf("%s\n", message);
 	}
-
 
 	// for the 3 next if conditions, no server needed, commands implemented locally
 	else if (strncmp(input, "!LIST", 5) == 0) {
@@ -225,7 +226,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 		// wait for server to send response message
 		recv(server_sd, message, sizeof(message), 0);
-		printf("Response from server: %s \n", message);  
+		printf("%s \n", message);  
 
 		if (strncmp(message, "221", 3) != 0) {
 			printf("Error: could not quit connection \n");
@@ -284,7 +285,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		}
 		bzero(message, sizeof(message));
 		recv(server_sd, message, sizeof(message), 0);
-		printf("Response from server: %s \n", message); 
+		printf("%s \n", message); 
 
 		if (data_transfer == 0) {
 			close(data_client_sd);
@@ -297,25 +298,25 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		*request_number += 1;
 	}
 
-	// to remove later, for now it is for debugging purposes
 	else {
 		if (send(server_sd, input, strlen(input),0) < 0) {
 		    perror("send");
 		    return 0;
 		}
+		bzero(message, sizeof(message));
+		recv(server_sd, message, sizeof(message), 0);
+		printf("%s \n", message); 
 	}
 	return 1;
 }
 
 
-// return 0 if invalid command or 1 if valid command
-int check_input(char* input) {
-	//  need to implement this function
-	if (strncmp(input, "PORT", 4) == 0) {
-		printf("You cannot explicitely send a PORT command \n");
-		return 0;
-	}
-	return 1;
+// need to check that the user doesn't input a PORT command explicitely
+// indeed, in that case, the server would open a new connection on a random port (decided by the user)
+// this could block the application
+int check_input_port(char* input) {
+	if (strncmp(input, "PORT", 4) == 0) { return 0;} // invalid
+	return 1; // valid
 }
 
 
@@ -382,7 +383,7 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 
 	// wait for server to send 200 OK response
 	recv(server_sd, message, sizeof(message), 0);
-	printf("Response from server: %s \n", message);  
+	printf("%s \n", message);  
 
 	if (strncmp(message, "200", 3) != 0) {
 		printf("Error: could not establish a data connection \n");
@@ -483,7 +484,7 @@ int list_files(int data_server_sd) {
 }
 
 int display_user_commands() {
-	printf("\nAvailable commands:\n");
+	printf("Available commands:\n");
 	printf("- USER username: to start authentification \n- PASS password: to finish authentification (after USER command) \n- STOR filename: upload a local file from current client directory to current server directory \n- RETR filename: download a file from current server directory to current client directory \n- LIST: list all the files under current server directory \n- !LIST: list all the files under current client directory \n- CWD foldername: change current server directory \n- !CWD foldername: change current client directory \n- PWD: display current server directory \n- !PWD: display current client directory \n- QUIT: quit the FTP session and closes the control TCP connection \n");
 	printf("ftp> ");
 	return 0;
