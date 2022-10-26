@@ -353,12 +353,44 @@ int handle_STOR(int data_sd, char* message) {
 	char buffer[256]; // 256 is a ramdom number for now
 	bzero(buffer, sizeof(buffer));
 
-	// receive data from client
-	recv(data_sd, buffer, sizeof(buffer), 0);
-	printf("Line of file received from client: %s \n", buffer);
-	bzero(&buffer,sizeof(buffer));
+	char* path[256];
+	sscanf(message, "STOR %s", &path);
+	printf("Path to file: %s \n", path);
 
-	return 1;
+	recv(data_sd, buffer, sizeof(buffer), 0);
+
+	if (strncmp(buffer, "no file", 7) == 0){
+		return 0;
+	}
+	else {
+		FILE *fp;
+
+	    if (!(fp = fopen (path, "w"))) {    /* open/validate file open */
+	        perror ("fopen-file");
+	        return 0;
+	    }
+
+	    // write first line already received in buffer to file
+	    fprintf(fp, "%s", buffer);
+	    // fprintf(fp, "%s \n", buffer);
+
+	    while (1) {
+	    	bzero(buffer, sizeof(buffer));
+	    	recv(data_sd, buffer, sizeof(buffer), 0);
+	    	if (strlen(buffer) > 0) {
+	    		printf("End of file now \n");
+	    		fprintf(fp, "%s \n", buffer);
+	    	}
+	    	else {
+	    		printf("break\n");
+	    		break;
+	    	}
+	    }
+
+	    fclose(fp);
+	    return 1;
+		// printf("Line of file received from server: %s \n", buffer);
+	}
 }
 
 int handle_RETR(int data_sd, char* message) {

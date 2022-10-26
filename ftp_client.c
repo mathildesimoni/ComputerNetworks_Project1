@@ -13,7 +13,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 int check_input(char* input);
 int create_data_socket(int new_port, char* my_ip);
 int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int data_client_sd);
-int upload_file(int data_server_sd, char* file_name);
+int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char* cur_dir_server);
 int download_file(int data_server_sd, char* file_name, char* cur_dir_client, char* cur_dir_server);
 int list_files(int data_server_sd);
 int display_user_commands();
@@ -202,6 +202,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 		bzero(message, sizeof(message));
 		recv(server_sd, message, sizeof(message), 0);
+		printf("Response from server: %s\n", message);
 	}
 
 
@@ -271,8 +272,14 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		else {
 			char file_name[256];
 			if (strncmp(input, "STOR", 4) == 0) {
-				send(server_sd, input, strlen(input), 0);
-				data_transfer = upload_file(data_server_sd, file_name);
+				sscanf(input, "STOR %s", &file_name);
+				printf("file name: %s \n", file_name);
+
+				bzero(message, sizeof(message));
+				sprintf(message, "STOR %s%s", cur_dir_server, file_name);
+				
+				send(server_sd, message, strlen(message), 0);
+				data_transfer = upload_file(data_server_sd, file_name, cur_dir_client, cur_dir_server);
 			}
 			else { // RETR command
 				sscanf(input, "RETR %s", &file_name);
@@ -396,15 +403,32 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 	return data_server_sd;
 }
 
-int upload_file(int data_server_sd, char* file_name) {
+int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char* cur_dir_server) {
 	char buffer[256]; // 256 is a ramdom number for now
 	bzero(buffer, sizeof(buffer));
 
-	strcpy(buffer, "This is the first line of the file from client");
-	send(data_server_sd, buffer, strlen(buffer), 0);
-	bzero(buffer, sizeof(buffer));
+	char client_path[256];
+	bzero(client_path, sizeof(client_path));
+	sprintf(client_path, "%s%s", cur_dir_client, file_name);
+	printf("client path: %s \n", client_path);
 
-	return 1;
+	// if file exists, starts transfer
+	FILE *fp;
+
+    if (!(fp = fopen (client_path, "r"))) {    /* open/validate file open */
+        perror ("fopen-file");
+        strcpy(buffer, "no file");
+		send(data_server_sd, buffer, strlen(buffer), 0);
+		bzero(&buffer,sizeof(buffer));
+        return 0; // failure
+    }
+    while(fgets(buffer, 256, fp)) {
+		printf("%s\n", buffer);
+		send(data_server_sd, buffer, strlen(buffer), 0);
+	    bzero(&buffer,sizeof(buffer));
+	}
+    fclose(fp);
+    return 1; // success
 }
 
 int download_file(int data_server_sd, char* file_name, char* cur_dir_client, char* cur_dir_server){
@@ -437,7 +461,7 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 	    while (1) {
 	    	bzero(buffer, sizeof(buffer));
 	    	recv(data_server_sd, buffer, sizeof(buffer), 0);
-	    	printf("%s", buffer);
+	    	printf("%s\n", buffer);
 	    	if (strlen(buffer) > 0) {
 	    		printf("End of file now \n");
 	    		fprintf(fp, "%s \n", buffer);
