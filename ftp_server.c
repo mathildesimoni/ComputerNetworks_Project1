@@ -8,22 +8,11 @@
 #include<sys/stat.h>
 #include <dirent.h>
 
+#include "ftp_server.h"
+
 #define LOGINFILE "users.txt"
 
-int serve_client(int client_fd);
-int check_input(char* input);
-int create_data_socket(char* client_ip, int client_port);
-int handle_STOR(int data_sd, char* message);
-int handle_RETR(int data_sd, char* message);
-int handle_LIST(int data_sd, char* message);
-int handle_loginuser(int client_fd, char* message);
-int handle_loginpass(int client_fd, char* message);
-int change_directory(char* cur_dir_server, char* new_dir);
-int check_dir_exists(char* path);
-int check_file_exists(char* path);
-
-int main()
-{
+int main() {
 	//1. socket();
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	// printf("server_fd = %d \n", server_fd);
@@ -381,12 +370,14 @@ int handle_STOR(int data_sd, char* message) {
 	    while (1) {
 	    	bzero(buffer, sizeof(buffer));
 	    	recv(data_sd, buffer, sizeof(buffer), 0);
-	    	 if (sizeof(buffer) > 0) {
-	    	 	fprintf(fp, "%s", buffer);
+	    	 if (strlen(buffer) > 0) {
+	    	 	printf("just received a line: %s \n", buffer);
+				fprintf(fp, "%s", buffer);
 				fflush(fp);  //Flushes buffer and prints to a file
 	    	 }
 	    	 else {
 				printf("\nEnd of file now \n");
+				// recv(data_sd, buffer, sizeof(buffer), 0);
 	    	 	break;
 	    	 }
 	    }

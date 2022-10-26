@@ -8,17 +8,7 @@
 #include<sys/types.h>
 #include<sys/stat.h>
 
-// function declarations
-int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir_client, int* logged_in, char* cur_dir_server);
-int check_input(char* input);
-int create_data_socket(int new_port, char* my_ip);
-int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int data_client_sd);
-int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char* cur_dir_server);
-int download_file(int data_server_sd, char* file_name, char* cur_dir_client, char* cur_dir_server);
-int list_files(int data_server_sd);
-int display_user_commands();
-int change_directory(char* cur_dir_client, char* new_dir);
-int list_directory(char* cur_dir_client);
+#include "ftp_client.h"
 
 // function definitions
 int main() {
@@ -74,7 +64,7 @@ int main() {
 		}
 		else {
 			printf("\nTo display available commands, enter \"commands\" \n");
-			printf("Please enter a command: ");
+			printf("ftp> ");
 		}		
 		
 		// get input from user
@@ -424,10 +414,12 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
     }
     while(fgets(buffer, 256, fp) != NULL) {
 		send(data_server_sd, buffer, sizeof(buffer), 0);
+		printf("just sent a line: %s \n", buffer);
 		// send(data_server_sd, buffer, strlen(buffer), 0);
 		bzero(&buffer,sizeof(buffer));
 	}
 
+	close(data_server_sd);
     fclose(fp);
     return 1; // success
 }
@@ -493,7 +485,7 @@ int list_files(int data_server_sd) {
 int display_user_commands() {
 	printf("\nAvailable commands:\n");
 	printf("- USER username: to start authentification \n- PASS password: to finish authentification (after USER command) \n- STOR filename: upload a local file from current client directory to current server directory \n- RETR filename: download a file from current server directory to current client directory \n- LIST: list all the files under current server directory \n- !LIST: list all the files under current client directory \n- CWD foldername: change current server directory \n- !CWD foldername: change current client directory \n- PWD: display current server directory \n- !PWD: display current client directory \n- QUIT: quit the FTP session and closes the control TCP connection \n");
-	printf("Please enter a command: ");
+	printf("ftp> ");
 	return 0;
 }
 
