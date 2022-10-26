@@ -354,22 +354,25 @@ int handle_STOR(int data_sd, char* message) {
 	char buffer[256]; // 256 is a ramdom number for now
 	bzero(buffer, sizeof(buffer));
 
-	char* path[256];
+	char path[256];
 	sscanf(message, "STOR %s", &path);
 	printf("Path to file: %s \n", path);
 
 	recv(data_sd, buffer, sizeof(buffer), 0);
+	printf("%s", buffer);
 
 	if (strncmp(buffer, "no file", 7) == 0){
 		return 0;
 	}
 	else {
+		printf("Opening the file \n");
 		FILE *fp;
 
 	    if (!(fp = fopen (path, "wb"))) {    /* open/validate file open */
 	        perror ("fopen-file");
 	        return 0;
 	    }
+
 
 	    // write first line already received in buffer to file
 	    fprintf(fp, "%s", buffer);

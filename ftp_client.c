@@ -425,7 +425,7 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
 		bzero(&buffer,sizeof(buffer));
         return 0; // failure
     }
-    while(fgets(buffer, sizeof(buffer), fp) != NULL) {
+    while(fgets(buffer, 256, fp) != NULL) {
 		send(data_server_sd, buffer, sizeof(buffer), 0);
 		// send(data_server_sd, buffer, strlen(buffer), 0);
 		bzero(&buffer,sizeof(buffer));
