@@ -266,7 +266,10 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 		int data_transfer;
 		// start exchange of data
 		if (strncmp(input, "LIST", 4) == 0) {
-			send(server_sd, input, strlen(input), 0);
+			bzero(message, sizeof(message));
+			sprintf(message, "LIST %s", cur_dir_server);
+			printf("%s\n", message);
+			send(server_sd, message, strlen(message), 0);
 			data_transfer = list_files(data_server_sd);
 		}
 		else {
@@ -425,6 +428,7 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
     while(fgets(buffer, 256, fp)) {
 		// buffer[strlen(buffer)-1] = '\0';
 		printf("%s\n", buffer);
+		// printf("%s", buffer);
 		send(data_server_sd, buffer, strlen(buffer), 0);
 	    bzero(&buffer,sizeof(buffer));
 	}
