@@ -130,7 +130,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			char username[256];
 			char tmp_dir_client[256];
 			sscanf(input, "USER %s", &username);
-			// printf("Username: %s \n", username);
 			sprintf(tmp_dir_client, "client_directories/%s/", username);
 			strcpy(cur_dir_client, tmp_dir_client);
 			strcpy(user_name, username);
@@ -198,7 +197,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 				perror("send");
 				return 0;
 			}
-
+			//receive 257 message from server
 			bzero(message, sizeof(message));
 			recv(server_sd, message, sizeof(message), 0);
 			printf("%s\n", message);
@@ -280,21 +279,13 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			if (strncmp(input, "LIST", 4) == 0) {
 				bzero(message, sizeof(message));
 				sprintf(message, "LIST %s", cur_dir_server);
-				// printf("%s\n", message);
-				send(server_sd, message, strlen(message), 0);
-				
-				// bzero(message, sizeof(message));
-				// recv(server_sd, message, strlen(message), 0);
-				// printf("%s \n");
-				
+				send(server_sd, message, strlen(message), 0);				
 				data_transfer = list_files(data_server_sd);
 			}
 			else {
 				char file_name[256];
 				if (strncmp(input, "STOR", 4) == 0) {
 					sscanf(input, "STOR %s", &file_name);
-					// printf("file name: %s \n", file_name);
-
 					bzero(message, sizeof(message));
 					sprintf(message, "STOR %s%s", cur_dir_server, file_name);
 					
@@ -303,8 +294,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 				}
 				else { // RETR command
 					sscanf(input, "RETR %s", &file_name);
-					// printf("file name: %s \n", file_name);
-
 					bzero(message, sizeof(message));
 					sprintf(message, "RETR %s%s", cur_dir_server, file_name);
 					
@@ -424,7 +413,7 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 }
 
 int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char* cur_dir_server) {
-	char buffer[256]; // 256 is a ramdom number for now
+	char buffer[256]; 
 	bzero(buffer, sizeof(buffer));
 
 	char client_path[256];
@@ -435,7 +424,7 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
 	// if file exists, starts transfer
 	FILE *fp;
 
-    if (!(fp = fopen (client_path, "rb"))) {    /* open/validate file open */
+    if (!(fp = fopen (client_path, "rb"))) {   
         perror ("fopen-file");
         strcpy(buffer, "no file");
 		send(data_server_sd, buffer, sizeof(buffer), 0);
@@ -444,8 +433,6 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
     }
     while(fgets(buffer, 256, fp) != NULL) {
 		send(data_server_sd, buffer, sizeof(buffer), 0);
-		printf("just sent a line: %s \n", buffer);
-		// send(data_server_sd, buffer, strlen(buffer), 0);
 		bzero(&buffer,sizeof(buffer));
 	}
 
@@ -460,7 +447,7 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 	bzero(client_path, sizeof(client_path));
 	sprintf(client_path, "%s%s", cur_dir_client, file_name);
 
-	char buffer[256]; // 256 is a ramdom number for now
+	char buffer[256]; 
 	bzero(buffer, sizeof(buffer));
 
 	recv(data_server_sd, buffer, sizeof(buffer), 0);
@@ -506,7 +493,7 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 }
 
 int list_files(int data_server_sd) {
-	char buffer[256]; // 256 is a ramdom number for now
+	char buffer[256]; 
 	bzero(buffer, sizeof(buffer));
 
 	// 150 message
@@ -570,11 +557,8 @@ int change_directory(char* cur_dir_client, char* new_dir, char* user_name){
 	return -1;
 }
 
+//list files within directory for LIST command
 int list_directory(char* cur_dir_client){
-	// char cmd[40];
-	// sprintf(cmd, "ls %s", cur_dir_client);
-	// system(cmd);
-
 	DIR *d;
     struct dirent *dir;
 	char* d_buffer[256];
@@ -583,7 +567,6 @@ int list_directory(char* cur_dir_client){
     {
         while ((dir = readdir(d)) != NULL)
         {
-            //printf("%s\n", dir->d_name);
 			sprintf(d_buffer, "%s ", dir->d_name);
 			printf("%s\n", d_buffer);
         }

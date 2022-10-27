@@ -142,8 +142,6 @@ int serve_client(int client_fd, int* auth, char* username) {
 			sscanf(message, "PORT %d,%d,%d,%d,%d,%d", &client_ip_arr[0], &client_ip_arr[1], &client_ip_arr[2], &client_ip_arr[3], &client_port_arr[0], &client_port_arr[1]);
 			sprintf(client_ip, "%d.%d.%d.%d", client_ip_arr[0], client_ip_arr[1], client_ip_arr[2],client_ip_arr[3]);
 			client_port = client_port_arr[0] * 256 + client_port_arr[1];
-			// printf("client IP: %s\n", client_ip);
-			// printf("client PORT: %d\n", client_port);
 
 			int data_sd = create_data_socket(client_ip, client_port);
 			if (data_sd == -1) { return 0; }
@@ -231,10 +229,10 @@ int serve_client(int client_fd, int* auth, char* username) {
 
 	else if (strncmp(message, "PASS", 4) == 0) {
 		printf("PASS command received.\n");
-		if (*auth == 1){
+		if (*auth == 1){ //check for command sequence. USER should come before PASS.
 			printf("Checking for passwords...\n");
 			handle_loginpass(client_fd, message, username, auth);
-		}else{
+		}else{ //else if PASS is typed before USER
 			printf("Bad sequence of commands.\n");
 			bzero(buffer, sizeof(buffer));
 			strcpy(buffer, "503 Bad sequence of commands.");
@@ -282,13 +280,15 @@ int serve_client(int client_fd, int* auth, char* username) {
 		strcpy(message, "ready for PWD");
 		send(client_fd, message, strlen(message), 0);
 
+		//receive current server directory from client
 		bzero(&message, sizeof(message));
 		if (recv(client_fd, message, sizeof(message), 0) < 0) {
 			perror("recv");
 			return 0;
 		}
-		printf("current server dir: %s \n", message);
+		printf("Current server dir: %s \n", message);
 		
+		//send server directory to client
 		char pwd_response[256];
 		sprintf(pwd_response, "257 %s", message );
 		bzero(&message, sizeof(message));
@@ -360,58 +360,50 @@ int create_data_socket(char* client_ip, int client_port){
 }
 
 int handle_STOR(int data_sd, char* message) {
-	char buffer[256]; // 256 is a ramdom number for now
+	char buffer[256]; 
 	bzero(buffer, sizeof(buffer));
-
 	char path[256];
 	sscanf(message, "STOR %s", &path);
-	// printf("Path to file: %s \n", path);
 
+	//receive the first line of the file 
 	recv(data_sd, buffer, sizeof(buffer), 0);
-	printf("%s", buffer);
 
 	if (strncmp(buffer, "no file", 7) == 0){
 		return 0;
 	}
-	else {
+	else { //open and validate file
 		printf("Opening the file \n");
 		FILE *fp;
 
-	    if (!(fp = fopen (path, "wb"))) {    /* open/validate file open */
+	    if (!(fp = fopen (path, "wb"))) {  
 	        perror ("fopen-file");
 	        return 0;
 	    }
-
 
 	    // write first line already received in buffer to file
 	    fprintf(fp, "%s", buffer);
 
 	    while (1) {
 	    	bzero(buffer, sizeof(buffer));
+			//receive the rest of the file
 	    	recv(data_sd, buffer, sizeof(buffer), 0);
 	    	 if (strlen(buffer) > 0) {
-	    	 	// printf("just received a line: %s \n", buffer);
 				fprintf(fp, "%s", buffer);
 				fflush(fp);  //Flushes buffer and prints to a file
 	    	 }
 	    	 else {
 				printf("\nEnd of file now \n");
-				// recv(data_sd, buffer, sizeof(buffer), 0);
 	    	 	break;
 	    	 }
 	    }
-
 	    fclose(fp);
 	    return 1;
-		// printf("Line of file received from server: %s \n", buffer);
 	}
 }
 
 int handle_RETR(int data_sd, char* message) {
-
-	char buffer[256]; // 256 is a ramdom number for now
+	char buffer[256]; 
 	bzero(buffer, sizeof(buffer));
-
 	char* path[256];
 	sscanf(message, "RETR %s", &path);
 	// printf("Path to file: %s \n", path);
@@ -444,12 +436,10 @@ int handle_RETR(int data_sd, char* message) {
 }
 
 int handle_LIST(int data_sd, char* message) {
-	char buffer[256]; // 256 is a ramdom number for now
+	char buffer[256]; 
 	bzero(buffer, sizeof(buffer));
-	
 	char* path[256];
 	sscanf(message, "LIST %s", &path);
-	// printf("Path to directory: %s \n", path);
 
 	// check if file exists in current server directory
 	if (check_dir_exists(path) == -1) {
@@ -463,10 +453,7 @@ int handle_LIST(int data_sd, char* message) {
 	send(data_sd, buffer, strlen(buffer), 0);
 	bzero(&buffer,sizeof(buffer));
 
-	// bzero(&buffer, sizeof(buffer));
-	// strcpy(buffer, d_buffer);
-	// send(data_sd, buffer, strlen(buffer), 0);
-
+	//list the files in the current server directory 
 	DIR *d;
     struct dirent *dir;
 	char* d_buffer[256];
@@ -475,7 +462,6 @@ int handle_LIST(int data_sd, char* message) {
     {
         while ((dir = readdir(d)) != NULL)
         {
-            //printf("%s\n", dir->d_name);
 			sprintf(d_buffer, "%s ", dir->d_name);
 			bzero(&buffer, sizeof(buffer));
 			strcpy(buffer, d_buffer);
@@ -483,7 +469,6 @@ int handle_LIST(int data_sd, char* message) {
         }
         closedir(d);
     }
-
     return 1;
 }
 
@@ -494,26 +479,29 @@ int handle_loginuser(int client_fd, char* message, char* username, int* auth){
 	user[strcspn (user, "\n")] = 0;  
 	strcpy(username, user);
 
+	//open and validate users.txt
     if (!(fp = fopen (LOGINFILE, "r"))) {    
         perror ("fopen-file");
         exit (EXIT_FAILURE);
     }
 
+	//read each line and scan username and pass in users.txt
 	while(fgets(buffer, 256, fp) != NULL) {
 		sscanf(buffer, "%s %s", fname, fpass);
+		//if username from client and username in users.txt match, login
 		if ((strcmp(username, fname) == 0)) {  
 			bzero(buffer, sizeof(buffer));
 			strcpy(buffer, "331 Username OK, need password.");
 			send(client_fd, buffer, strlen(buffer), 0);
 			bzero(&buffer,sizeof(buffer));
 			printf("Valid username.\n");
-			*auth = 1;
+			*auth = 1; //checks that USER command was typed before PASS
 			return 1; 
     	}
 	}
-
     fclose (fp);
 
+	//else, not logged in
 	printf("Failed login. Try again.\n");
 	bzero(buffer, sizeof(buffer));
 	strcpy(buffer, "530 Not logged in.");
@@ -527,25 +515,25 @@ int handle_loginpass(int client_fd, char* message, char* username, int* auth){
 	FILE *fp;
     char fname[256],fpass[256],pass[256],buffer[256];   
 	sscanf(message, "PASS %s\n", &pass);
-
 	pass[strcspn (pass, "\n")] = 0;  
 
+	//open and validate users.txt
     if (!(fp = fopen (LOGINFILE, "r"))) {   
         perror ("fopen-file");
         exit (EXIT_FAILURE);
     }
 
+	//read each line of users.txt
 	while(fgets(buffer, 256, fp) != NULL) {
 		sscanf(buffer, "%s %s", fname, fpass);
-
-		if ((strcmp(username, fname) == 0) && (strcmp(pass, fpass) == 0)) {  /* validate login */
+		//if username matches client input and password matches accordingly, login authenticated
+		if ((strcmp(username, fname) == 0) && (strcmp(pass, fpass) == 0)) {  
 			printf ("User has successfully logged in.\n");
 			bzero(buffer, sizeof(buffer));
 			strcpy(buffer, "230 User logged in, proceed.");
 			send(client_fd, buffer, strlen(buffer), 0);
 			bzero(&buffer,sizeof(buffer));
-			*auth = 0;
-
+			*auth = 0; //sets to zero to recheck sequence of commands
 			return 1;   
     		}
 		}	
