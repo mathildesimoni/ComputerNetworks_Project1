@@ -134,7 +134,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 		if (pid == 0) {
 			// close(server_fd);
 
-			// first, get client address and port
+			// get client address and port
 			int client_ip_arr[4];
 			int client_port_arr[2];
 			char client_ip[30];
@@ -142,18 +142,19 @@ int serve_client(int client_fd, int* auth, char* username) {
 			sscanf(message, "PORT %d,%d,%d,%d,%d,%d", &client_ip_arr[0], &client_ip_arr[1], &client_ip_arr[2], &client_ip_arr[3], &client_port_arr[0], &client_port_arr[1]);
 			sprintf(client_ip, "%d.%d.%d.%d", client_ip_arr[0], client_ip_arr[1], client_ip_arr[2],client_ip_arr[3]);
 			client_port = client_port_arr[0] * 256 + client_port_arr[1];
-			printf("client IP: %s\n", client_ip);
-			printf("client PORT: %d\n", client_port);
+			// printf("client IP: %s\n", client_ip);
+			// printf("client PORT: %d\n", client_port);
 
 			int data_sd = create_data_socket(client_ip, client_port);
 			if (data_sd == -1) { return 0; }
 		   	printf("Connected to client on new port \n");
 
-		   	// server sends acknowledgement to client that it received the port
-			bzero(&message, sizeof(message));
+			// server sends acknowledgement to client that it received the port
+			// bzero(&message, sizeof(message));
 			strcpy(message, "200 PORT command successful.");
 			send(client_fd, message, strlen(message), 0);
 			bzero(&message, sizeof(message));
+
 
 			// start exchange of data
 			// waits for RETR, LIST or STOR command
@@ -170,7 +171,27 @@ int serve_client(int client_fd, int* auth, char* username) {
 			}
 			else if (strncmp(message, "RETR", 4) == 0) {
 				printf("RETR command received.\n");
-				data_transfer = handle_RETR(data_sd, message);
+
+				char path[256];
+				sscanf(message, "RETR %s", &path);
+
+				char response[256];
+				bzero(&response,sizeof(response));
+
+				// check if file exists in current server directory
+				if (check_file_exists(path) == -1) {
+					strcpy(response, "no file");
+					send(data_sd, response, strlen(response), 0);
+					bzero(&response,sizeof(response));
+					data_transfer = 0;
+				}
+				else {
+					strcpy(response, "150 File status okay; about to open. data connection. \n");
+					send(client_fd, response, strlen(response), 0);
+					bzero(&response,sizeof(response));
+					data_transfer = handle_RETR(data_sd, message);
+				}
+				
 			}
 			else if (strncmp(message, "LIST", 4) == 0) {
 				printf("LIST command received.\n");
@@ -190,6 +211,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 				strcpy(message, "226 Transfer completed.");
 				send(client_fd, message, strlen(message), 0);
 				bzero(&message, sizeof(message));
+				printf("File transferred to client. \n");
 				return 1;
 			}
 		    // return -2;
@@ -395,16 +417,12 @@ int handle_RETR(int data_sd, char* message) {
 	// printf("Path to file: %s \n", path);
 
 	// check if file exists in current server directory
-	if (check_file_exists(path) == -1) {
-		strcpy(buffer, "no file");
-		send(data_sd, buffer, strlen(buffer), 0);
-		bzero(&buffer,sizeof(buffer));
-		return 0;
-	}
-
-	strcpy(buffer, "no file");
-	send(data_sd, buffer, strlen(buffer), 0);
-	bzero(&buffer,sizeof(buffer));
+	// if (check_file_exists(path) == -1) {
+	// 	strcpy(buffer, "no file");
+	// 	send(data_sd, buffer, strlen(buffer), 0);
+	// 	bzero(&buffer,sizeof(buffer));
+	// 	return 0;
+	// }
 
 	// if file exists, starts transfer
 	FILE *fp;
@@ -416,6 +434,7 @@ int handle_RETR(int data_sd, char* message) {
 		bzero(&buffer,sizeof(buffer));
         return 0; // failure
     }
+	printf("sending data now \n");
     while(fgets(buffer, 256, fp)) {
 	    send(data_sd, buffer, strlen(buffer), 0);
 	    bzero(&buffer,sizeof(buffer));
@@ -439,6 +458,14 @@ int handle_LIST(int data_sd, char* message) {
 		bzero(&buffer,sizeof(buffer));
 		return 0;
 	}
+
+	strcpy(buffer, "150 File status okay; about to open. data connection. \n");
+	send(data_sd, buffer, strlen(buffer), 0);
+	bzero(&buffer,sizeof(buffer));
+
+	// bzero(&buffer, sizeof(buffer));
+	// strcpy(buffer, d_buffer);
+	// send(data_sd, buffer, strlen(buffer), 0);
 
 	DIR *d;
     struct dirent *dir;

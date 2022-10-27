@@ -276,6 +276,11 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 				sprintf(message, "LIST %s", cur_dir_server);
 				// printf("%s\n", message);
 				send(server_sd, message, strlen(message), 0);
+				
+				// bzero(message, sizeof(message));
+				// recv(server_sd, message, strlen(message), 0);
+				// printf("%s \n");
+				
 				data_transfer = list_files(data_server_sd);
 			}
 			else {
@@ -402,7 +407,7 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 
 	// wait for server to send 200 OK response
 	recv(server_sd, message, sizeof(message), 0);
-	printf("%s \n", message);  
+	printf("%s \n", message);
 
 	if (strncmp(message, "200", 3) != 0) {
 		printf("Error: could not establish a data connection \n");
@@ -449,7 +454,6 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 	char client_path[256];
 	bzero(client_path, sizeof(client_path));
 	sprintf(client_path, "%s%s", cur_dir_client, file_name);
-	printf("client path: %s \n", client_path);
 
 	char buffer[256]; // 256 is a ramdom number for now
 	bzero(buffer, sizeof(buffer));
@@ -460,6 +464,14 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 		return 0;
 	}
 	else {
+
+		char file_ok[256];
+		
+		bzero(file_ok, sizeof(file_ok));
+	    recv(data_server_sd, file_ok, sizeof(file_ok), 0);
+		printf("%s", file_ok);
+
+
 		FILE *fp;
 
 	    if (!(fp = fopen (client_path, "wb"))) {    /* open/validate file open */
@@ -469,31 +481,32 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 
 	    // write first line already received in buffer to file
 	    fprintf(fp, "%s", buffer);
-	    // fprintf(fp, "%s \n", buffer);
 
 	    while (1) {
 	    	bzero(buffer, sizeof(buffer));
+			// printf("Ready to receive \n");
 	    	recv(data_server_sd, buffer, sizeof(buffer), 0);
-	    	printf("%s\n", buffer);
+	    	// printf("%s\n", buffer);
 	    	if (strlen(buffer) > 0) {
 	    		fprintf(fp, "%s \n", buffer);
 	    	}
 	    	else {
-				printf("End of file now \n");
-	    		printf("break\n");
+				// printf("End of file now \n");
 	    		break;
 	    	}
 	    }
-
 	    fclose(fp);
 	    return 1;
-		// printf("Line of file received from server: %s \n", buffer);
-	}
-	
+	}	
 }
 
 int list_files(int data_server_sd) {
 	char buffer[256]; // 256 is a ramdom number for now
+	bzero(buffer, sizeof(buffer));
+
+	// 150 message
+	recv(data_server_sd, buffer, sizeof(buffer), 0);
+	printf("%s", buffer);
 	bzero(buffer, sizeof(buffer));
 
 	recv(data_server_sd, buffer, sizeof(buffer), 0);
