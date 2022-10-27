@@ -143,78 +143,101 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	else if (strncmp(input, "CWD", 3) == 0){
 		printf("CWD command typed \n");
-
-		if (send(server_sd, input, strlen(input),0) < 0) {
-		    perror("send");
-		    return 0;
+		if(*logged_in == 0){
+			printf("User must successfully login first.\n");
 		}
+		else{
+			if (send(server_sd, input, strlen(input),0) < 0) {
+				perror("send");
+				return 0;
+			}
 
-		// waits the server is ready to receive current server directory
-		bzero(message, sizeof(message));
-		recv(server_sd, message, sizeof(message), 0);
+			// waits the server is ready to receive current server directory
+			bzero(message, sizeof(message));
+			recv(server_sd, message, sizeof(message), 0);
 
-		// send current server directory to server (needed to check correct directory)
-		if (send(server_sd, cur_dir_server, strlen(cur_dir_server),0) < 0) {
-		    perror("send");
-		    return 0;
-		}
+			// send current server directory to server (needed to check correct directory)
+			if (send(server_sd, cur_dir_server, strlen(cur_dir_server),0) < 0) {
+				perror("send");
+				return 0;
+			}
 
-		char new_dir[256];
-		sscanf(input, "CWD %s", &new_dir);
+			char new_dir[256];
+			sscanf(input, "CWD %s", &new_dir);
 
-		// wait for answer from server
-		bzero(message, sizeof(message));
-		recv(server_sd, message, sizeof(message), 0);
-		printf("%s \n", message);
-		if (strncmp(message, "200", 3) == 0) {
-			char* path[256];
-			sprintf(path, "%s%s/", cur_dir_server, new_dir);
-			strcpy(cur_dir_server, path);
+			// wait for answer from server
+			bzero(message, sizeof(message));
+			recv(server_sd, message, sizeof(message), 0);
+			printf("%s \n", message);
+			if (strncmp(message, "200", 3) == 0) {
+				char* path[256];
+				sprintf(path, "%s%s/", cur_dir_server, new_dir);
+				strcpy(cur_dir_server, path);
+			}
 		}
 	}
 
 	else if (strncmp(input, "PWD", 3) == 0) {
 		printf("PWD command typed \n");
-		
-		if (send(server_sd, input, strlen(input),0) < 0) {
-		    perror("send");
-		    return 0;
+		if(*logged_in == 0){
+			printf("User must successfully login first.\n");
 		}
+		else{
+			if (send(server_sd, input, strlen(input),0) < 0) {
+				perror("send");
+				return 0;
+			}
 
-		bzero(message, sizeof(message));
-		recv(server_sd, message, sizeof(message), 0);
-		// send current server directory to server (needed to check correct directory)
-		if (send(server_sd, cur_dir_server, strlen(cur_dir_server),0) < 0) {
-		    perror("send");
-		    return 0;
+			bzero(message, sizeof(message));
+			recv(server_sd, message, sizeof(message), 0);
+			// send current server directory to server (needed to check correct directory)
+			if (send(server_sd, cur_dir_server, strlen(cur_dir_server),0) < 0) {
+				perror("send");
+				return 0;
+			}
+
+			bzero(message, sizeof(message));
+			recv(server_sd, message, sizeof(message), 0);
+			printf("%s\n", message);
 		}
-
-		bzero(message, sizeof(message));
-		recv(server_sd, message, sizeof(message), 0);
-		printf("%s\n", message);
 	}
 
 	// for the 3 next if conditions, no server needed, commands implemented locally
 	else if (strncmp(input, "!LIST", 5) == 0) {
 		printf("!LIST command typed \n");
-		list_directory(cur_dir_client);
+		if(*logged_in == 0){
+			printf("User must successfully login first.\n");
+		}
+		else{
+			list_directory(cur_dir_client);
+		}
 	}
 
 	else if (strncmp(input, "!CWD", 4) == 0) {
 		printf("!CWD command typed \n");
-		char new_dir[256];
-		sscanf(input, "!CWD %s", &new_dir);
+		if(*logged_in == 0){
+			printf("User must successfully login first.\n");
+		}
+		else{
+			char new_dir[256];
+			sscanf(input, "!CWD %s", &new_dir);
 
-		int result = change_directory(cur_dir_client, new_dir);
-		if (result == -1) {
-			printf("Error: could not change current client directory \n");
+			int result = change_directory(cur_dir_client, new_dir);
+			if (result == -1) {
+				printf("Error: could not change current client directory \n");
+			}
 		}
 	}
 
 	else if (strncmp(input, "!PWD", 4) == 0) {
 		printf("!PWD command typed \n");
-		printf("Current client directory: %s\n", cur_dir_client);
+		if(*logged_in == 0){
+			printf("User must successfully login first.\n");
 		}
+		else{
+			printf("Current client directory: %s\n", cur_dir_client);
+		}
+	}
 
 	// send to server
 	else if (strncmp(input, "QUIT", 4) == 0) {
@@ -237,65 +260,69 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	else if ((strncmp(input, "STOR", 4) == 0) || (strncmp(input, "RETR", 4) == 0) || (strncmp(input, "LIST", 4) == 0)) {
 		printf("STOR, RETR or LIST command typed: sending PORT command first\n");
-
-		// establish data connection with a PORT command
-		int new_port = my_port + *request_number;
-		sscanf(my_ip, "%d.%d.%d.%d", &my_ip_arr[0], &my_ip_arr[1], &my_ip_arr[2], &my_ip_arr[3]);
-		
-		int data_client_sd = create_data_socket(new_port, my_ip);
-		if (data_client_sd == -1) { return 0; }
-
-		int data_server_sd = establish_data_connection(server_sd, my_ip_arr, new_port, data_client_sd);
-		if (data_server_sd == -1) { 
-			close(data_client_sd);
-			return 0; 
+		if(*logged_in == 0){
+			printf("User must successfully login first.\n");
 		}
+		else{
+			// establish data connection with a PORT command
+			int new_port = my_port + *request_number;
+			sscanf(my_ip, "%d.%d.%d.%d", &my_ip_arr[0], &my_ip_arr[1], &my_ip_arr[2], &my_ip_arr[3]);
+			
+			int data_client_sd = create_data_socket(new_port, my_ip);
+			if (data_client_sd == -1) { return 0; }
 
-		int data_transfer;
-		// start exchange of data
-		if (strncmp(input, "LIST", 4) == 0) {
+			int data_server_sd = establish_data_connection(server_sd, my_ip_arr, new_port, data_client_sd);
+			if (data_server_sd == -1) { 
+				close(data_client_sd);
+				return 0; 
+			}
+
+			int data_transfer;
+			// start exchange of data
+			if (strncmp(input, "LIST", 4) == 0) {
+				bzero(message, sizeof(message));
+				sprintf(message, "LIST %s", cur_dir_server);
+				printf("%s\n", message);
+				send(server_sd, message, strlen(message), 0);
+				data_transfer = list_files(data_server_sd);
+			}
+			else {
+				char file_name[256];
+				if (strncmp(input, "STOR", 4) == 0) {
+					sscanf(input, "STOR %s", &file_name);
+					printf("file name: %s \n", file_name);
+
+					bzero(message, sizeof(message));
+					sprintf(message, "STOR %s%s", cur_dir_server, file_name);
+					
+					send(server_sd, message, strlen(message), 0);
+					data_transfer = upload_file(data_server_sd, file_name, cur_dir_client, cur_dir_server);
+				}
+				else { // RETR command
+					sscanf(input, "RETR %s", &file_name);
+					printf("file name: %s \n", file_name);
+
+					bzero(message, sizeof(message));
+					sprintf(message, "RETR %s%s", cur_dir_server, file_name);
+					
+					send(server_sd, message, strlen(message), 0);
+					data_transfer = download_file(data_server_sd, file_name, cur_dir_client, cur_dir_server);
+				}
+			}
 			bzero(message, sizeof(message));
-			sprintf(message, "LIST %s", cur_dir_server);
-			printf("%s\n", message);
-			send(server_sd, message, strlen(message), 0);
-			data_transfer = list_files(data_server_sd);
-		}
-		else {
-			char file_name[256];
-			if (strncmp(input, "STOR", 4) == 0) {
-				sscanf(input, "STOR %s", &file_name);
-				printf("file name: %s \n", file_name);
+			recv(server_sd, message, sizeof(message), 0);
+			printf("%s \n", message); 
 
-				bzero(message, sizeof(message));
-				sprintf(message, "STOR %s%s", cur_dir_server, file_name);
-				
-				send(server_sd, message, strlen(message), 0);
-				data_transfer = upload_file(data_server_sd, file_name, cur_dir_client, cur_dir_server);
+			if (data_transfer == 0) {
+				close(data_client_sd);
+				*request_number += 1;
+				return 0; 
 			}
-			else { // RETR command
-				sscanf(input, "RETR %s", &file_name);
-				printf("file name: %s \n", file_name);
 
-				bzero(message, sizeof(message));
-				sprintf(message, "RETR %s%s", cur_dir_server, file_name);
-				
-				send(server_sd, message, strlen(message), 0);
-				data_transfer = download_file(data_server_sd, file_name, cur_dir_client, cur_dir_server);
-			}
-		}
-		bzero(message, sizeof(message));
-		recv(server_sd, message, sizeof(message), 0);
-		printf("%s \n", message); 
-
-		if (data_transfer == 0) {
+			// close the data connection
 			close(data_client_sd);
 			*request_number += 1;
-			return 0; 
 		}
-
-		// close the data connection
-		close(data_client_sd);
-		*request_number += 1;
 	}
 
 	else {
