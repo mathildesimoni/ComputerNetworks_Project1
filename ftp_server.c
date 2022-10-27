@@ -15,6 +15,7 @@
 int main() {
 
 	int auth = 0;
+	char username[256];
 	//1. socket();
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -77,7 +78,7 @@ int main() {
 				}
 				else {
 					printf("\n");
-					result = serve_client(fd, &auth);
+					result = serve_client(fd, &auth, &username);
 					// need to do 0 option to serve client
 					if (result == -1){ // if client disconnected
 						FD_CLR(fd,&full_fdset);
@@ -104,7 +105,7 @@ int main() {
 
 //=================================
 //  returns -1 if client wants to disconnect, 0 if invalid input/other problem, 1 of OK
-int serve_client(int client_fd, int* auth) {
+int serve_client(int client_fd, int* auth, char* username) {
 	char message[256];	
 	bzero(&message, sizeof(message));
 	
@@ -202,16 +203,14 @@ int serve_client(int client_fd, int* auth) {
 	else if (strncmp(message, "USER", 4) == 0) {
 		printf("USER command received\n");
 		printf("Checking for usernames...\n");
-		*auth = 1;
-		handle_loginuser(client_fd, message);
+		handle_loginuser(client_fd, message, username, auth);
 	}
 
 	else if (strncmp(message, "PASS", 4) == 0) {
 		printf("PASS command received\n");
 		if (*auth == 1){
 			printf("Checking for passwords...\n");
-			handle_loginpass(client_fd, message);
-			*auth = 0;
+			handle_loginpass(client_fd, message, username, auth);
 		}else{
 			printf("Bad sequence of commands.\n");
 			bzero(buffer, sizeof(buffer));
@@ -468,33 +467,28 @@ int handle_LIST(int data_sd, char* message) {
     return 1;
 }
 
-int handle_loginuser(int client_fd, char* message){
+int handle_loginuser(int client_fd, char* message, char* username, int* auth){
 	FILE *fp;
     char fname[256],fpass[256],user[256],buffer[256];   
 	sscanf(message, "USER %s\n", &user);
-
 	user[strcspn (user, "\n")] = 0;  
+	strcpy(username, user);
 
-    if (!(fp = fopen (LOGINFILE, "r"))) {    /* open/validate file open */
+    if (!(fp = fopen (LOGINFILE, "r"))) {    
         perror ("fopen-file");
         exit (EXIT_FAILURE);
     }
 
 	while(fgets(buffer, 256, fp) != NULL) {
 		sscanf(buffer, "%s %s", fname, fpass);
-		//printf("%s\n", fname);
-		//printf("%s\n", fpass);
-	    // if (sscanf(buffer, "%255s, %255s", fname, fpass) != 2) {   /* read fname/fpin */
-        // fputs ("error: read of fname failed.\n", stderr);
-        //exit (EXIT_FAILURE);
-    	//}
-		if ((strcmp(user, fname) == 0)) {  /* validate login */
+		if ((strcmp(username, fname) == 0)) {  
 			bzero(buffer, sizeof(buffer));
 			strcpy(buffer, "331 Username OK, need password.");
 			send(client_fd, buffer, strlen(buffer), 0);
 			bzero(&buffer,sizeof(buffer));
+			*auth = 1;
 			
-			return 1;   /* return success */
+			return 1; 
     	}
 	}
 
@@ -506,38 +500,35 @@ int handle_loginuser(int client_fd, char* message){
 	send(client_fd, buffer, strlen(buffer), 0);
 	bzero(&buffer,sizeof(buffer));
 
-    return 0;       /* return failure */
+    return 0;     
 }
 
-int handle_loginpass(int client_fd, char* message){
+int handle_loginpass(int client_fd, char* message, char* username, int* auth){
 	FILE *fp;
     char fname[256],fpass[256],pass[256],buffer[256];   
 	sscanf(message, "PASS %s\n", &pass);
 
 	pass[strcspn (pass, "\n")] = 0;  
 
-    if (!(fp = fopen (LOGINFILE, "r"))) {    /* open/validate file open */
+    if (!(fp = fopen (LOGINFILE, "r"))) {   
         perror ("fopen-file");
         exit (EXIT_FAILURE);
     }
 
 	while(fgets(buffer, 256, fp) != NULL) {
 		sscanf(buffer, "%s %s", fname, fpass);
-		if ((strcmp(pass, fpass) == 0)) {  /* validate login */
+		if ((strcmp(username, fname) == 0) && (strcmp(pass, fpass) == 0)) {  /* validate login */
 			printf ("You have successfully logged in!\n");
 			bzero(buffer, sizeof(buffer));
 			strcpy(buffer, "230 User logged in, proceed.");
 			send(client_fd, buffer, strlen(buffer), 0);
 			bzero(&buffer,sizeof(buffer));
-				
-			return 1;   /* return success */
+			*auth = 0;
+
+			return 1;   
     		}
 		}	
 
-    // if (fscanf (fp, " %255s%255s", fname, fpass) != 2) {   /* read fname/fpin */
-    //     fputs ("error: read of fpin failed.\n", stderr);
-    //     exit (EXIT_FAILURE);
-    // }
     fclose (fp);
 
 	printf("Failed login. Try again.\n");
@@ -546,7 +537,7 @@ int handle_loginpass(int client_fd, char* message){
 	send(client_fd, buffer, strlen(buffer), 0);
 	bzero(&buffer,sizeof(buffer));
 
-    return 0;       /* return failure */
+    return 0;    
 }
 
 int change_directory(char* cur_dir_server, char* new_dir){
