@@ -1,5 +1,3 @@
 bob donuts
 alice lemon
 cam apple
-damon berry
-john coke 
