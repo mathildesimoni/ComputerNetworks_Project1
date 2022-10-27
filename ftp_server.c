@@ -68,6 +68,7 @@ int main() {
 			if (FD_ISSET(fd, &ready_fdset)) {
 				if (fd == server_fd) {
 					int new_fd = accept(server_fd, NULL, NULL);
+					printf("New client connected.\n");
 
 					// let the client know the server is ready
 					send(new_fd, init_message, strlen(init_message), 0);
@@ -76,19 +77,19 @@ int main() {
 					if (new_fd > max_fd) max_fd = new_fd;    //Update the max_fd if new socket has higher FD
 				}
 				else {
-					printf("\n");
+					// printf("\n");
 					result = serve_client(fd, &auth);
 					// need to do 0 option to serve client
 					if (result == -1){ // if client disconnected
 						FD_CLR(fd,&full_fdset);
 					}
 					// to remove later, debugging for now
-					if (result == -2){ // for fork
-						// FD_CLR(server_fd,&full_fdset);
-						// printf("Clearing client (-2)\n");
-						printf("received -2 \n");
-						// to_stop = 1;
-					}
+					// if (result == -2){ // for fork
+					// 	// FD_CLR(server_fd,&full_fdset);
+					// 	// printf("Clearing client (-2)\n");
+					// 	printf("received -2 \n");
+					// 	// to_stop = 1;
+					// }
 				}
 			}
 		}
@@ -97,7 +98,7 @@ int main() {
 		return 0;
 	}
 	//6. close());
-	printf("Closing server_fd\n");
+	// printf("Closing server_fd\n");
 	close(server_fd);
 	return 0;
 }
@@ -118,14 +119,14 @@ int serve_client(int client_fd, int* auth) {
 
 	// check if the client disconnected or wants to disconnect
 	if (strlen(message) == 0) {
-		printf("Client disconnected \n");
+		printf("Client disconnected.\n");
 		close(client_fd);
 		return -1;
 	}
 
 	// check command
 	if (strncmp(message, "PORT", 4) == 0){
-		printf("PORT command received\n");
+		printf("PORT command received.\n");
 
 		int pid = fork();
 		
@@ -163,15 +164,15 @@ int serve_client(int client_fd, int* auth) {
 			int data_transfer;
 
 			if (strncmp(message, "STOR", 4) == 0) {
-				printf("STOR command received\n");
+				printf("STOR command received.\n");
 				data_transfer = handle_STOR(data_sd, message);
 			}
 			else if (strncmp(message, "RETR", 4) == 0) {
-				printf("RETR command received\n");
+				printf("RETR command received.\n");
 				data_transfer = handle_RETR(data_sd, message);
 			}
 			else if (strncmp(message, "LIST", 4) == 0) {
-				printf("LIST command received\n");
+				printf("LIST command received.\n");
 				data_transfer = handle_LIST(data_sd, message);
 			}
 
@@ -200,14 +201,14 @@ int serve_client(int client_fd, int* auth) {
 	}
 
 	else if (strncmp(message, "USER", 4) == 0) {
-		printf("USER command received\n");
+		printf("USER command received.\n");
 		printf("Checking for usernames...\n");
 		*auth = 1;
 		handle_loginuser(client_fd, message);
 	}
 
 	else if (strncmp(message, "PASS", 4) == 0) {
-		printf("PASS command received\n");
+		printf("PASS command received.\n");
 		if (*auth == 1){
 			printf("Checking for passwords...\n");
 			handle_loginpass(client_fd, message);
@@ -221,20 +222,8 @@ int serve_client(int client_fd, int* auth) {
 		}
 	}
 
-	else if (strncmp(message, "STOR", 4) == 0) {
-		printf("STOR command received\n");
-	}
-
-	else if (strncmp(message, "RETR", 4) == 0) {
-		printf("RETR command received\n");
-	}
-
-	else if (strncmp(message, "LIST", 4) == 0) {
-		printf("LIST command received\n");
-	}
-
 	else if (strncmp(message, "CWD", 3) == 0) {
-		printf("CWD command received\n");
+		printf("CWD command received.\n");
 
 		char new_dir[256];
 		sscanf(message, "CWD %s", &new_dir);
@@ -248,16 +237,16 @@ int serve_client(int client_fd, int* auth) {
 				perror("recv");
 				return 0;
 		}
-		printf("current server dir: %s \n", message);
 
 		int result = change_directory(message, new_dir);
 		if (result == -1) {
-			printf("Error: could not change current server directory \n");
+			printf("Error: could not change current server directory.\n");
 			bzero(&message, sizeof(message));
 			strcpy(message, "550 No such file or directory.");
 		}
 		else {
 			char tmp_response[256];
+			printf("Server directory updated.\n");
 			sprintf(tmp_response, "200 directory changed to %s.", message);
 			bzero(&message, sizeof(message));
 			strcpy(message, tmp_response);
@@ -266,7 +255,7 @@ int serve_client(int client_fd, int* auth) {
 	}
 
 	else if (strncmp(message, "PWD", 3) == 0) {
-		printf("PWD command received\n");
+		printf("PWD command received.\n");
 
 		bzero(&message, sizeof(message));
 		strcpy(message, "ready for PWD");
@@ -280,7 +269,7 @@ int serve_client(int client_fd, int* auth) {
 		printf("current server dir: %s \n", message);
 		
 		char pwd_response[256];
-		sprintf(pwd_response, "257 %s", message );
+		sprintf(pwd_response, "257 %s.", message );
 		bzero(&message, sizeof(message));
 		strcpy(message, pwd_response);
 		send(client_fd, message, strlen(message), 0);
@@ -288,7 +277,7 @@ int serve_client(int client_fd, int* auth) {
 	}
 
 	else if (strncmp(message, "QUIT", 4) == 0) {
-		printf("QUIT command received\n");
+		printf("QUIT command received.\n");
 
 		bzero(&message, sizeof(message));
 		strcpy(message, "221 Service closing control connection.");
@@ -355,7 +344,7 @@ int handle_STOR(int data_sd, char* message) {
 
 	char path[256];
 	sscanf(message, "STOR %s", &path);
-	printf("Path to file: %s \n", path);
+	// printf("Path to file: %s \n", path);
 
 	recv(data_sd, buffer, sizeof(buffer), 0);
 	printf("%s", buffer);
@@ -380,7 +369,7 @@ int handle_STOR(int data_sd, char* message) {
 	    	bzero(buffer, sizeof(buffer));
 	    	recv(data_sd, buffer, sizeof(buffer), 0);
 	    	 if (strlen(buffer) > 0) {
-	    	 	printf("just received a line: %s \n", buffer);
+	    	 	// printf("just received a line: %s \n", buffer);
 				fprintf(fp, "%s", buffer);
 				fflush(fp);  //Flushes buffer and prints to a file
 	    	 }
@@ -404,7 +393,7 @@ int handle_RETR(int data_sd, char* message) {
 
 	char* path[256];
 	sscanf(message, "RETR %s", &path);
-	printf("Path to file: %s \n", path);
+	// printf("Path to file: %s \n", path);
 
 	// check if file exists in current server directory
 	if (check_file_exists(path) == -1) {
@@ -413,6 +402,10 @@ int handle_RETR(int data_sd, char* message) {
 		bzero(&buffer,sizeof(buffer));
 		return 0;
 	}
+
+	strcpy(buffer, "no file");
+	send(data_sd, buffer, strlen(buffer), 0);
+	bzero(&buffer,sizeof(buffer));
 
 	// if file exists, starts transfer
 	FILE *fp;
@@ -438,7 +431,7 @@ int handle_LIST(int data_sd, char* message) {
 	
 	char* path[256];
 	sscanf(message, "LIST %s", &path);
-	printf("Path to directory: %s \n", path);
+	// printf("Path to directory: %s \n", path);
 
 	// check if file exists in current server directory
 	if (check_dir_exists(path) == -1) {
@@ -493,7 +486,7 @@ int handle_loginuser(int client_fd, char* message){
 			strcpy(buffer, "331 Username OK, need password.");
 			send(client_fd, buffer, strlen(buffer), 0);
 			bzero(&buffer,sizeof(buffer));
-			
+			printf("Valid username.\n");
 			return 1;   /* return success */
     	}
 	}
@@ -524,7 +517,7 @@ int handle_loginpass(int client_fd, char* message){
 	while(fgets(buffer, 256, fp) != NULL) {
 		sscanf(buffer, "%s %s", fname, fpass);
 		if ((strcmp(pass, fpass) == 0)) {  /* validate login */
-			printf ("You have successfully logged in!\n");
+			printf ("User has successfully logged in.\n");
 			bzero(buffer, sizeof(buffer));
 			strcpy(buffer, "230 User logged in, proceed.");
 			send(client_fd, buffer, strlen(buffer), 0);
@@ -553,7 +546,7 @@ int change_directory(char* cur_dir_server, char* new_dir){
 	// check new dir exists
 	char* path[256];
 	sprintf(path, "%s%s/", cur_dir_server, new_dir);
-	printf("new requested dir %s \n", path);
+	// printf("new requested dir %s \n", path);
 
 	if (check_dir_exists(path) == 0) {
 		strcpy(cur_dir_server, path);

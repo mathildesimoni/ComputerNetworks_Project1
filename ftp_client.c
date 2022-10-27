@@ -82,7 +82,7 @@ int main() {
 
         // check input
         else if (check_input_port(buffer) == 0) {
-        	printf("You cannot explicitely send a PORT command \n");
+        	printf("Error: You cannot explicitely send a PORT command \n");
         }
         else { // proceed with the request
         	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir_client, &logged_in, cur_dir_server);
@@ -90,7 +90,7 @@ int main() {
         	// 	printf("Error: could not send command to server \n");
         	// }
         	if (response == -1) {
-        		printf("Closing the connection to server \n");
+        		// printf("Closing the connection to server \n");
 	        	close(server_sd);
 	            break;
         	}	
@@ -112,7 +112,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	// for USER, PASS, CWD, PWD, not preprocessing needed, directly send to server
 	if ((strncmp(input, "USER", 4) == 0) || (strncmp(input, "PASS", 4) == 0)) {
-		// printf("USER or PASS command typed \n");
 
 		if (send(server_sd, input, strlen(input),0) < 0) {
 		    perror("send");
@@ -142,7 +141,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	}
 
 	else if (strncmp(input, "CWD", 3) == 0){
-		printf("CWD command typed \n");
 		if(*logged_in == 0){
 			printf("530 Not logged in.\n");
 		}
@@ -178,7 +176,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	}
 
 	else if (strncmp(input, "PWD", 3) == 0) {
-		printf("PWD command typed \n");
 		if(*logged_in == 0){
 			printf("530 Not logged in.\n");
 		}
@@ -204,7 +201,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	// for the 3 next if conditions, no server needed, commands implemented locally
 	else if (strncmp(input, "!LIST", 5) == 0) {
-		printf("!LIST command typed \n");
 		if(*logged_in == 0){
 			printf("530 Not logged in.\n");
 		}
@@ -214,7 +210,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	}
 
 	else if (strncmp(input, "!CWD", 4) == 0) {
-		printf("!CWD command typed \n");
 		if(*logged_in == 0){
 			printf("530 Not logged in.\n");
 		}
@@ -230,7 +225,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	}
 
 	else if (strncmp(input, "!PWD", 4) == 0) {
-		printf("!PWD command typed \n");
 		if(*logged_in == 0){
 			printf("User must successfully login first.\n");
 		}
@@ -241,7 +235,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 
 	// send to server
 	else if (strncmp(input, "QUIT", 4) == 0) {
-		printf("QUIT command typed \n");
 		if (send(server_sd, input, strlen(input),0) < 0) {
 		    perror("send");
 		    return 0;
@@ -259,7 +252,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	}
 
 	else if ((strncmp(input, "STOR", 4) == 0) || (strncmp(input, "RETR", 4) == 0) || (strncmp(input, "LIST", 4) == 0)) {
-		printf("STOR, RETR or LIST command typed: sending PORT command first\n");
 		if(*logged_in == 0){
 			printf("530 Not logged in.\n");
 		}
@@ -282,7 +274,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			if (strncmp(input, "LIST", 4) == 0) {
 				bzero(message, sizeof(message));
 				sprintf(message, "LIST %s", cur_dir_server);
-				printf("%s\n", message);
+				// printf("%s\n", message);
 				send(server_sd, message, strlen(message), 0);
 				data_transfer = list_files(data_server_sd);
 			}
@@ -290,7 +282,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 				char file_name[256];
 				if (strncmp(input, "STOR", 4) == 0) {
 					sscanf(input, "STOR %s", &file_name);
-					printf("file name: %s \n", file_name);
+					// printf("file name: %s \n", file_name);
 
 					bzero(message, sizeof(message));
 					sprintf(message, "STOR %s%s", cur_dir_server, file_name);
@@ -300,7 +292,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 				}
 				else { // RETR command
 					sscanf(input, "RETR %s", &file_name);
-					printf("file name: %s \n", file_name);
+					// printf("file name: %s \n", file_name);
 
 					bzero(message, sizeof(message));
 					sprintf(message, "RETR %s%s", cur_dir_server, file_name);
@@ -376,7 +368,7 @@ int create_data_socket(int new_port, char* my_ip) {
 		return 0;
 	}
 
-	printf("Client is listening...\n");
+	// printf("Client is listening...\n");
 	return data_client_sd;
 }
 
@@ -392,7 +384,7 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 	    perror("send");
 	    return -1;
 	}
-	printf("SENT PORT COMMAND \n");
+	// printf("SENT PORT COMMAND \n");
 	bzero(message, sizeof(message));
 
 	// will store the address server is sending data from
@@ -406,7 +398,7 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 	int data_server_sd = accept(data_client_sd, (struct sockaddr *)&server_data_addr, &server_data_addr_len); // blocking
 	//stores server new IP address as a string and prints it
 	inet_ntop(AF_INET, &(server_data_addr.sin_addr), server_data_IP, INET_ADDRSTRLEN);
-	printf("Server connected on IP %s and port %hu \n", server_data_IP, ntohs(server_data_addr.sin_port));
+	// printf("Server connected on IP %s and port %hu \n", server_data_IP, ntohs(server_data_addr.sin_port));
 
 	// wait for server to send 200 OK response
 	recv(server_sd, message, sizeof(message), 0);
