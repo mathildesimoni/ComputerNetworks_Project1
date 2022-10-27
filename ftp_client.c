@@ -90,9 +90,6 @@ int main() {
         }
         else { // proceed with the request
         	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir_client, &logged_in, cur_dir_server, &user_name);
-        	// if (response == 0) {
-        	// 	printf("Error: could not send command to server \n");
-        	// }
         	if (response == -1) {
         		// printf("Closing the connection to server \n");
 	        	close(server_sd);
@@ -100,14 +97,10 @@ int main() {
         	}	
         }
         bzero(buffer, sizeof(buffer));		
-        // printf("Current client directory: %s\n", cur_dir_client);
-        // printf("Current server directory: %s\n", cur_dir_server);
-        // printf("User logged in: %d \n", logged_in);
 	}
 	return 0;
 }
 
-// returns 0 if error
 int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir_client, int* logged_in, char* cur_dir_server, char* user_name) {
 
 	int my_ip_arr[4];
@@ -138,7 +131,6 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			sprintf(tmp_dir_server, "server_directories/%s/", username);
 			strcpy(cur_dir_server, tmp_dir_server);
 		}
-
 		if ((strncmp("PASS", input, 4) == 0) && (strncmp("230", message, 3) == 0)){
 			*logged_in = 1;
 		}
@@ -338,7 +330,6 @@ int check_input_port(char* input) {
 	return 1; // valid
 }
 
-
 int create_data_socket(int new_port, char* my_ip) {
 
 	int data_client_sd = socket(AF_INET,SOCK_STREAM,0);
@@ -367,8 +358,6 @@ int create_data_socket(int new_port, char* my_ip) {
 		perror("listen");
 		return 0;
 	}
-
-	// printf("Client is listening...\n");
 	return data_client_sd;
 }
 
@@ -407,8 +396,6 @@ int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int d
 		printf("Error: could not establish a data connection \n");
 		return -1;
 	}
-	bzero(message, sizeof(message));
-
 	return data_server_sd;
 }
 
@@ -419,13 +406,11 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
 	char client_path[256];
 	bzero(client_path, sizeof(client_path));
 	sprintf(client_path, "%s%s", cur_dir_client, file_name);
-	// printf("client path: %s \n", client_path);
 
 	// if file exists, starts transfer
 	FILE *fp;
 
     if (!(fp = fopen (client_path, "rb"))) {   
-        perror ("fopen-file");
         strcpy(buffer, "no file");
 		send(data_server_sd, buffer, sizeof(buffer), 0);
 		bzero(&buffer,sizeof(buffer));
@@ -463,11 +448,9 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 	    recv(data_server_sd, file_ok, sizeof(file_ok), 0);
 		printf("%s", file_ok);
 
-
 		FILE *fp;
 
 	    if (!(fp = fopen (client_path, "wb"))) {    /* open/validate file open */
-	        perror ("fopen-file");
 	        return 0;
 	    }
 
@@ -476,14 +459,11 @@ int download_file(int data_server_sd, char* file_name, char* cur_dir_client, cha
 
 	    while (1) {
 	    	bzero(buffer, sizeof(buffer));
-			// printf("Ready to receive \n");
 	    	recv(data_server_sd, buffer, sizeof(buffer), 0);
-	    	// printf("%s\n", buffer);
 	    	if (strlen(buffer) > 0) {
 	    		fprintf(fp, "%s \n", buffer);
 	    	}
 	    	else {
-				// printf("End of file now \n");
 	    		break;
 	    	}
 	    }
@@ -496,7 +476,6 @@ int list_files(int data_server_sd) {
 	char buffer[256]; 
 	bzero(buffer, sizeof(buffer));
 
-	// 150 message
 	recv(data_server_sd, buffer, sizeof(buffer), 0);
 	printf("%s", buffer);
 	bzero(buffer, sizeof(buffer));
@@ -525,7 +504,7 @@ int change_directory(char* cur_dir_client, char* new_dir, char* user_name){
 			return -1; // if the cliesnt is at the base directory, cannot go to previous directory (NOT ALLOWED)
 		}
 
-		// process to go back to previous directory
+		// process to go back to previous directory (CWD ..)
 		char tmp[256];
 		strcpy(tmp, cur_dir_client);
 
@@ -546,15 +525,12 @@ int change_directory(char* cur_dir_client, char* new_dir, char* user_name){
 	else {
 		sprintf(path, "%s%s/", cur_dir_client, new_dir);
 	}
-
-	struct stat path_stat;
-	int is_dir = stat(path, &path_stat);
-	if (S_ISDIR(path_stat.st_mode)) {
-    	strcpy(cur_dir_client, path);
-    	printf("Client directory updated: %s \n", path);
-		return 0;
-    }
-	return -1;
+	if (check_dir_exists(path) == -1) {
+		return -1;
+	}
+	strcpy(cur_dir_client, path);
+    printf("Client directory updated: %s \n", path);
+	return 0;
 }
 
 //list files within directory for LIST command
@@ -575,6 +551,8 @@ int list_directory(char* cur_dir_client){
 	return 0;
 }
 
-
-
-
+int check_dir_exists(char* path){
+	struct stat path_stat;
+	if (stat(path, &path_stat) == 0 && S_ISDIR(path_stat.st_mode)) {return 0; }
+	return -1;
+}

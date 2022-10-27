@@ -75,22 +75,14 @@ int main() {
 					send(new_fd, init_message, strlen(init_message), 0);
 
 					FD_SET(new_fd, &full_fdset);
-					if (new_fd > max_fd) max_fd = new_fd;    //Update the max_fd if new socket has higher FD
+					if (new_fd > max_fd) max_fd = new_fd; // Update the max_fd if new socket has higher FD
 				}
 				else {
 					printf("\n");
 					result = serve_client(fd, &auth, &username);
-					// need to do 0 option to serve client
 					if (result == -1){ // if client disconnected
 						FD_CLR(fd,&full_fdset);
 					}
-					// to remove later, debugging for now
-					// if (result == -2){ // for fork
-					// 	// FD_CLR(server_fd,&full_fdset);
-					// 	// printf("Clearing client (-2)\n");
-					// 	printf("received -2 \n");
-					// 	// to_stop = 1;
-					// }
 				}
 			}
 		}
@@ -99,7 +91,6 @@ int main() {
 		return 0;
 	}
 	//6. close());
-	// printf("Closing server_fd\n");
 	close(server_fd);
 	return 0;
 }
@@ -132,8 +123,6 @@ int serve_client(int client_fd, int* auth, char* username) {
 		int pid = fork();
 		
 		if (pid == 0) {
-			// close(server_fd);
-
 			// get client address and port
 			int client_ip_arr[4];
 			int client_port_arr[2];
@@ -148,11 +137,9 @@ int serve_client(int client_fd, int* auth, char* username) {
 		   	printf("Connected to client on new port \n");
 
 			// server sends acknowledgement to client that it received the port
-			// bzero(&message, sizeof(message));
 			strcpy(message, "200 PORT command successful.");
 			send(client_fd, message, strlen(message), 0);
 			bzero(&message, sizeof(message));
-
 
 			// start exchange of data
 			// waits for RETR, LIST or STOR command
@@ -161,7 +148,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 				return 0;
 			}
 
-			int data_transfer;
+			int data_transfer; // will check status of data transfer
 
 			if (strncmp(message, "STOR", 4) == 0) {
 				printf("STOR command received.\n");
@@ -184,13 +171,14 @@ int serve_client(int client_fd, int* auth, char* username) {
 					data_transfer = 0;
 				}
 				else {
+					bzero(&response,sizeof(response));
 					strcpy(response, "150 File status okay; about to open data connection. \n");
 					send(client_fd, response, strlen(response), 0);
 					bzero(&response,sizeof(response));
 					data_transfer = handle_RETR(data_sd, message);
 				}
-				
 			}
+
 			else if (strncmp(message, "LIST", 4) == 0) {
 				printf("LIST command received.\n");
 				data_transfer = handle_LIST(data_sd, message);
@@ -201,19 +189,17 @@ int serve_client(int client_fd, int* auth, char* username) {
 				close(data_sd);
 				strcpy(message, "550 No such file or directory.");
 				send(client_fd, message, strlen(message), 0);
-				bzero(&message, sizeof(message));
+				// bzero(&message, sizeof(message));
 				return 0; 
 			}
 			else { // data_transfer = 1
 				close(data_sd);
 				strcpy(message, "226 Transfer completed.");
 				send(client_fd, message, strlen(message), 0);
-				bzero(&message, sizeof(message));
+				// bzero(&message, sizeof(message));
 				printf("File transferred to client. \n");
 				return 1;
 			}
-		    // return -2;
-
 		}
 		else {
 			close(client_fd); 
@@ -316,7 +302,6 @@ int serve_client(int client_fd, int* auth, char* username) {
 		bzero(&message, sizeof(message));
 		printf("Invalid command. \n");
 	}
-
 	return 1;
 }
 
@@ -368,7 +353,6 @@ int handle_STOR(int data_sd, char* message) {
 
 	//receive the first line of the file 
 	recv(data_sd, buffer, sizeof(buffer), 0);
-	// printf("%s", buffer);
 
 	if (strncmp(buffer, "no file", 7) == 0){
 		return 0;
@@ -378,7 +362,6 @@ int handle_STOR(int data_sd, char* message) {
 		FILE *fp;
 
 	    if (!(fp = fopen (path, "wb"))) {  
-	        perror ("fopen-file");
 	        return 0;
 	    }
 
@@ -408,15 +391,6 @@ int handle_RETR(int data_sd, char* message) {
 	bzero(buffer, sizeof(buffer));
 	char* path[256];
 	sscanf(message, "RETR %s", &path);
-	// printf("Path to file: %s \n", path);
-
-	// check if file exists in current server directory
-	// if (check_file_exists(path) == -1) {
-	// 	strcpy(buffer, "no file");
-	// 	send(data_sd, buffer, strlen(buffer), 0);
-	// 	bzero(&buffer,sizeof(buffer));
-	// 	return 0;
-	// }
 
 	// if file exists, starts transfer
 	FILE *fp;
@@ -539,7 +513,6 @@ int handle_loginpass(int client_fd, char* message, char* username, int* auth){
 			return 1;   
     		}
 		}	
-
     fclose (fp);
 
 	printf("Failed login. Try again.\n");
@@ -601,5 +574,3 @@ int check_file_exists(char* path){
 	if (stat(path, &path_stat) == 0) {return 0; }
 	return -1;
 }
-
-

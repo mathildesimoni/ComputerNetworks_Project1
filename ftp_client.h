@@ -12,5 +12,6 @@ int list_files(int data_server_sd);
 int display_user_commands();
 int change_directory(char* cur_dir_client, char* new_dir, char* user_name);
 int list_directory(char* cur_dir_client);
+int check_dir_exists(char* path);
 
 #endif
