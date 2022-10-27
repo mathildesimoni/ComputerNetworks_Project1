@@ -1,0 +1,5 @@
+my name is cam
+education: NYUAD
+scholarship: full-aid
+GPA: 3.5
+coursework: machine learning, data science

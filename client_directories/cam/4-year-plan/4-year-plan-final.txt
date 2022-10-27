@@ -1,0 +1,6 @@
+this is my final 4-year-plan
+lass1: netoworks
+class2: algorithm
+class3: machine learning
+class4: FYWS
+class5: capstone

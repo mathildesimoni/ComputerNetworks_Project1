@@ -1,0 +1,3 @@
+this is a draft for my 4 year plan
+class1: netoworks
+class2: algorithm
