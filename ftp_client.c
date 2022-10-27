@@ -144,7 +144,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	else if (strncmp(input, "CWD", 3) == 0){
 		printf("CWD command typed \n");
 		if(*logged_in == 0){
-			printf("User must successfully login first.\n");
+			printf("530 Not logged in.\n");
 		}
 		else{
 			if (send(server_sd, input, strlen(input),0) < 0) {
@@ -180,7 +180,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	else if (strncmp(input, "PWD", 3) == 0) {
 		printf("PWD command typed \n");
 		if(*logged_in == 0){
-			printf("User must successfully login first.\n");
+			printf("530 Not logged in.\n");
 		}
 		else{
 			if (send(server_sd, input, strlen(input),0) < 0) {
@@ -206,7 +206,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	else if (strncmp(input, "!LIST", 5) == 0) {
 		printf("!LIST command typed \n");
 		if(*logged_in == 0){
-			printf("User must successfully login first.\n");
+			printf("530 Not logged in.\n");
 		}
 		else{
 			list_directory(cur_dir_client);
@@ -216,7 +216,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	else if (strncmp(input, "!CWD", 4) == 0) {
 		printf("!CWD command typed \n");
 		if(*logged_in == 0){
-			printf("User must successfully login first.\n");
+			printf("530 Not logged in.\n");
 		}
 		else{
 			char new_dir[256];
@@ -261,7 +261,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 	else if ((strncmp(input, "STOR", 4) == 0) || (strncmp(input, "RETR", 4) == 0) || (strncmp(input, "LIST", 4) == 0)) {
 		printf("STOR, RETR or LIST command typed: sending PORT command first\n");
 		if(*logged_in == 0){
-			printf("User must successfully login first.\n");
+			printf("530 Not logged in.\n");
 		}
 		else{
 			// establish data connection with a PORT command
