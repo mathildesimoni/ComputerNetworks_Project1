@@ -1,7 +1,7 @@
 #ifndef FTP_SERVER_H
 #define FTP_SERVER_H
 
-int serve_client(int client_fd);
+int serve_client(int client_fd, int* auth);
 int create_data_socket(char* client_ip, int client_port);
 int handle_STOR(int data_sd, char* message);
 int handle_RETR(int data_sd, char* message);

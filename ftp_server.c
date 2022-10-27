@@ -13,6 +13,8 @@
 #define LOGINFILE "users.txt"
 
 int main() {
+
+	int auth = 0;
 	//1. socket();
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -75,7 +77,7 @@ int main() {
 				}
 				else {
 					printf("\n");
-					result = serve_client(fd);
+					result = serve_client(fd, &auth);
 					// need to do 0 option to serve client
 					if (result == -1){ // if client disconnected
 						FD_CLR(fd,&full_fdset);
@@ -102,7 +104,7 @@ int main() {
 
 //=================================
 //  returns -1 if client wants to disconnect, 0 if invalid input/other problem, 1 of OK
-int serve_client(int client_fd) {
+int serve_client(int client_fd, int* auth) {
 	char message[256];	
 	bzero(&message, sizeof(message));
 	
@@ -200,13 +202,23 @@ int serve_client(int client_fd) {
 	else if (strncmp(message, "USER", 4) == 0) {
 		printf("USER command received\n");
 		printf("Checking for usernames...\n");
+		*auth = 1;
 		handle_loginuser(client_fd, message);
 	}
 
 	else if (strncmp(message, "PASS", 4) == 0) {
 		printf("PASS command received\n");
-		printf("Checking for passwords...\n");
-		handle_loginpass(client_fd, message);
+		if (*auth == 1){
+			printf("Checking for passwords...\n");
+			handle_loginpass(client_fd, message);
+			*auth = 0;
+		}else{
+			printf("Bad sequence of commands.\n");
+			bzero(buffer, sizeof(buffer));
+			strcpy(buffer, "503 Bad sequence of commands.");
+			send(client_fd, buffer, strlen(buffer), 0);
+			bzero(&buffer,sizeof(buffer));
+		}
 	}
 
 	else if (strncmp(message, "STOR", 4) == 0) {
