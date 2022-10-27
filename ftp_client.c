@@ -7,6 +7,7 @@
 #include<stdlib.h>
 #include<sys/types.h>
 #include<sys/stat.h>
+#include <dirent.h>
 
 #include "ftp_client.h"
 
@@ -510,7 +511,7 @@ int list_files(int data_server_sd) {
 	bzero(buffer, sizeof(buffer));
 
 	recv(data_server_sd, buffer, sizeof(buffer), 0);
-	printf("Files in the directory: %s \n", buffer);
+	printf("%s \n", buffer);
 
 	return 1;
 }
@@ -539,9 +540,24 @@ int change_directory(char* cur_dir_client, char* new_dir){
 }
 
 int list_directory(char* cur_dir_client){
-	char cmd[40];
-	sprintf(cmd, "ls %s", cur_dir_client);
-	system(cmd);
+	// char cmd[40];
+	// sprintf(cmd, "ls %s", cur_dir_client);
+	// system(cmd);
+
+	DIR *d;
+    struct dirent *dir;
+	char* d_buffer[256];
+    d = opendir(cur_dir_client);
+    if (d)
+    {
+        while ((dir = readdir(d)) != NULL)
+        {
+            //printf("%s\n", dir->d_name);
+			sprintf(d_buffer, "%s ", dir->d_name);
+			printf("%s\n", d_buffer);
+        }
+        closedir(d);
+    }
 	return 0;
 }
 
