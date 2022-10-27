@@ -8,7 +8,7 @@ int handle_RETR(int data_sd, char* message);
 int handle_LIST(int data_sd, char* message);
 int handle_loginuser(int client_fd, char* message, char* username, int* auth);
 int handle_loginpass(int client_fd, char* message, char* username, int* auth);
-int change_directory(char* cur_dir_server, char* new_dir);
+int change_directory(char* cur_dir_server, char* new_dir, char* username);
 int check_dir_exists(char* path);
 int check_file_exists(char* path);
 

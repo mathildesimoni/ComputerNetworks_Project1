@@ -259,7 +259,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 				return 0;
 		}
 
-		int result = change_directory(message, new_dir);
+		int result = change_directory(&message, new_dir, username);
 		if (result == -1) {
 			printf("Error: could not change current server directory.\n");
 			bzero(&message, sizeof(message));
@@ -268,7 +268,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 		else {
 			char tmp_response[256];
 			printf("Server directory updated.\n");
-			sprintf(tmp_response, "200 directory changed to %s.", message);
+			sprintf(tmp_response, "200 directory changed to %s", message);
 			bzero(&message, sizeof(message));
 			strcpy(message, tmp_response);
 		}
@@ -290,7 +290,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 		printf("current server dir: %s \n", message);
 		
 		char pwd_response[256];
-		sprintf(pwd_response, "257 %s.", message );
+		sprintf(pwd_response, "257 %s", message );
 		bzero(&message, sizeof(message));
 		strcpy(message, pwd_response);
 		send(client_fd, message, strlen(message), 0);
@@ -561,12 +561,38 @@ int handle_loginpass(int client_fd, char* message, char* username, int* auth){
     return 0;    
 }
 
-int change_directory(char* cur_dir_server, char* new_dir){
+int change_directory(char* cur_dir_server, char* new_dir, char* username){
 	// check new dir exists
 	char* path[256];
-	sprintf(path, "%s%s/", cur_dir_server, new_dir);
-	// printf("new requested dir %s \n", path);
 
+	if (strcmp(new_dir, "..") == 0) {
+		char base_dir[256];
+		sprintf(base_dir, "%s%s/", "server_directories/", username);
+		if (strcmp(cur_dir_server, base_dir) == 0) {
+			return -1; // if the cliesnt is at the base directory, cannot go to previous directory (NOT ALLOWED)
+		}
+
+		// process to go back to previous directory
+		char tmp[256];
+		strcpy(tmp, cur_dir_server);
+
+		// get the index of the last / character to remove the end substring
+		int i;
+		int count = 2;
+		int length = strlen(cur_dir_server);
+
+		for (i = 2; i < length; i++) {
+			if (cur_dir_server[length - i] == '/') {
+				break;
+			}
+			count++;
+		}
+		tmp[length - i] = '\0';
+		sprintf(path, "%s/", tmp);
+	}
+	else {
+		sprintf(path, "%s%s/", cur_dir_server, new_dir);
+	}
 	if (check_dir_exists(path) == 0) {
 		strcpy(cur_dir_server, path);
 		return 0;

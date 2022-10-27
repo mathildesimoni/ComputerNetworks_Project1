@@ -53,6 +53,9 @@ int main() {
 	char cur_dir_client[256];
 	strcpy(cur_dir_client, "no_dir");
 
+	char user_name[256];
+	bzero(user_name, sizeof(user_name));
+
 	char cur_dir_server[256];
 	strcpy(cur_dir_server, "no_dir");
 
@@ -85,7 +88,7 @@ int main() {
         	printf("Error: You cannot explicitely send a PORT command \n");
         }
         else { // proceed with the request
-        	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir_client, &logged_in, cur_dir_server);
+        	response = serve_user(server_sd, buffer, my_ip, my_port, &request_number, cur_dir_client, &logged_in, cur_dir_server, &user_name);
         	// if (response == 0) {
         	// 	printf("Error: could not send command to server \n");
         	// }
@@ -104,7 +107,7 @@ int main() {
 }
 
 // returns 0 if error
-int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir_client, int* logged_in, char* cur_dir_server) {
+int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_port, int* request_number, char* cur_dir_client, int* logged_in, char* cur_dir_server, char* user_name) {
 
 	int my_ip_arr[4];
 	char message[256];
@@ -129,6 +132,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			// printf("Username: %s \n", username);
 			sprintf(tmp_dir_client, "client_directories/%s/", username);
 			strcpy(cur_dir_client, tmp_dir_client);
+			strcpy(user_name, username);
 
 			char tmp_dir_server[256];
 			sprintf(tmp_dir_server, "server_directories/%s/", username);
@@ -169,7 +173,8 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			printf("%s \n", message);
 			if (strncmp(message, "200", 3) == 0) {
 				char* path[256];
-				sprintf(path, "%s%s/", cur_dir_server, new_dir);
+				sscanf(message, "200 directory changed to %s", &path);
+				// sprintf(path, "%s%s/", cur_dir_server, new_dir);
 				strcpy(cur_dir_server, path);
 			}
 		}
@@ -217,7 +222,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			char new_dir[256];
 			sscanf(input, "!CWD %s", &new_dir);
 
-			int result = change_directory(cur_dir_client, new_dir);
+			int result = change_directory(cur_dir_client, new_dir, &user_name);
 			if (result == -1) {
 				printf("Error: could not change current client directory \n");
 			}
@@ -377,7 +382,6 @@ int create_data_socket(int new_port, char* my_ip) {
 	return data_client_sd;
 }
 
-
 int establish_data_connection(int server_sd, int* my_ip_arr, int new_port, int data_client_sd) {
 
 	char message[256];
@@ -522,20 +526,47 @@ int display_user_commands() {
 	return 0;
 }
 
-int change_directory(char* cur_dir_client, char* new_dir){
+int change_directory(char* cur_dir_client, char* new_dir, char* user_name){
 	// check new dir exists
 	char* path[256];
-	sprintf(path, "%s%s/", cur_dir_client, new_dir);
+
+	if (strcmp(new_dir, "..") == 0) {
+		char base_dir[256];
+		sprintf(base_dir, "%s%s/", "client_directories/", user_name);
+		if (strcmp(cur_dir_client, base_dir) == 0) {
+			return -1; // if the cliesnt is at the base directory, cannot go to previous directory (NOT ALLOWED)
+		}
+
+		// process to go back to previous directory
+		char tmp[256];
+		strcpy(tmp, cur_dir_client);
+
+		// get the index of the last / character to remove the end substring
+		int i;
+		int count = 2;
+		int length = strlen(cur_dir_client);
+
+		for (i = 2; i < length; i++) {
+			if (cur_dir_client[length - i] == '/') {
+				break;
+			}
+			count++;
+		}
+		tmp[length - i] = '\0';
+		sprintf(path, "%s/", tmp);
+	}
+	else {
+		sprintf(path, "%s%s/", cur_dir_client, new_dir);
+	}
 
 	struct stat path_stat;
 	int is_dir = stat(path, &path_stat);
-
-    if (S_ISDIR(path_stat.st_mode)) {
+	if (S_ISDIR(path_stat.st_mode)) {
     	strcpy(cur_dir_client, path);
     	printf("Client directory updated: %s \n", path);
 		return 0;
     }
-    return -1;
+	return -1;
 }
 
 int list_directory(char* cur_dir_client){
