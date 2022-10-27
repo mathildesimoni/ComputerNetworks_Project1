@@ -186,7 +186,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 					data_transfer = 0;
 				}
 				else {
-					strcpy(response, "150 File status okay; about to open. data connection. \n");
+					strcpy(response, "150 File status okay; about to open data connection. \n");
 					send(client_fd, response, strlen(response), 0);
 					bzero(&response,sizeof(response));
 					data_transfer = handle_RETR(data_sd, message);
@@ -314,6 +314,7 @@ int serve_client(int client_fd, int* auth, char* username) {
 		strcpy(message, "202 Command not implemented.");
 		send(client_fd, message, strlen(message), 0);
 		bzero(&message, sizeof(message));
+		printf("Invalid command. \n");
 	}
 
 	return 1;
@@ -368,7 +369,7 @@ int handle_STOR(int data_sd, char* message) {
 	// printf("Path to file: %s \n", path);
 
 	recv(data_sd, buffer, sizeof(buffer), 0);
-	printf("%s", buffer);
+	// printf("%s", buffer);
 
 	if (strncmp(buffer, "no file", 7) == 0){
 		return 0;
@@ -459,7 +460,7 @@ int handle_LIST(int data_sd, char* message) {
 		return 0;
 	}
 
-	strcpy(buffer, "150 File status okay; about to open. data connection. \n");
+	strcpy(buffer, "150 File status okay; about to open data connection. \n");
 	send(data_sd, buffer, strlen(buffer), 0);
 	bzero(&buffer,sizeof(buffer));
 

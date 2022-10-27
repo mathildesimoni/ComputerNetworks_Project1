@@ -223,7 +223,7 @@ int serve_user(int server_sd, char* input, char* my_ip, unsigned short int my_po
 			char new_dir[256];
 			sscanf(input, "!CWD %s", &new_dir);
 
-			int result = change_directory(cur_dir_client, new_dir, &user_name);
+			int result = change_directory(cur_dir_client, new_dir, user_name);
 			if (result == -1) {
 				printf("Error: could not change current client directory \n");
 			}
@@ -430,7 +430,7 @@ int upload_file(int data_server_sd, char* file_name, char* cur_dir_client, char*
 	char client_path[256];
 	bzero(client_path, sizeof(client_path));
 	sprintf(client_path, "%s%s", cur_dir_client, file_name);
-	printf("client path: %s \n", client_path);
+	// printf("client path: %s \n", client_path);
 
 	// if file exists, starts transfer
 	FILE *fp;
