@@ -69,7 +69,7 @@ int main() {
 			if (FD_ISSET(fd, &ready_fdset)) {
 				if (fd == server_fd) {
 					int new_fd = accept(server_fd, NULL, NULL);
-					printf("New client connected.\n");
+					printf("\nNew client connected.\n");
 
 					// let the client know the server is ready
 					send(new_fd, init_message, strlen(init_message), 0);
@@ -574,3 +574,4 @@ int check_file_exists(char* path){
 	if (stat(path, &path_stat) == 0) {return 0; }
 	return -1;
 }
+
