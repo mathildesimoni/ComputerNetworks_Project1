@@ -480,20 +480,25 @@ int handle_loginuser(int client_fd, char* message){
         exit (EXIT_FAILURE);
     }
 
-    if (fscanf (fp, " %255s%255s", fname, fpass) != 2) {   /* read fname/fpin */
-        fputs ("error: read of fname failed.\n", stderr);
-        exit (EXIT_FAILURE);
-    }
-    fclose (fp);
+	while(fgets(buffer, 256, fp) != NULL) {
+		sscanf(buffer, "%s %s", fname, fpass);
+		//printf("%s\n", fname);
+		//printf("%s\n", fpass);
+	    // if (sscanf(buffer, "%255s, %255s", fname, fpass) != 2) {   /* read fname/fpin */
+        // fputs ("error: read of fname failed.\n", stderr);
+        //exit (EXIT_FAILURE);
+    	//}
+		if ((strcmp(user, fname) == 0)) {  /* validate login */
+			bzero(buffer, sizeof(buffer));
+			strcpy(buffer, "331 Username OK, need password.");
+			send(client_fd, buffer, strlen(buffer), 0);
+			bzero(&buffer,sizeof(buffer));
+			
+			return 1;   /* return success */
+    	}
+	}
 
-    if ((strcmp(user, fname) == 0)) {  /* validate login */
-		bzero(buffer, sizeof(buffer));
-		strcpy(buffer, "331 Username OK, need password.");
-		send(client_fd, buffer, strlen(buffer), 0);
-		bzero(&buffer,sizeof(buffer));
-		
-        return 1;   /* return success */
-    }
+    fclose (fp);
 
 	printf("Failed login. Try again.\n");
 	bzero(buffer, sizeof(buffer));
@@ -516,21 +521,24 @@ int handle_loginpass(int client_fd, char* message){
         exit (EXIT_FAILURE);
     }
 
-    if (fscanf (fp, " %255s%255s", fname, fpass) != 2) {   /* read fname/fpin */
-        fputs ("error: read of fpin failed.\n", stderr);
-        exit (EXIT_FAILURE);
-    }
+	while(fgets(buffer, 256, fp) != NULL) {
+		sscanf(buffer, "%s %s", fname, fpass);
+		if ((strcmp(pass, fpass) == 0)) {  /* validate login */
+			printf ("You have successfully logged in!\n");
+			bzero(buffer, sizeof(buffer));
+			strcpy(buffer, "230 User logged in, proceed.");
+			send(client_fd, buffer, strlen(buffer), 0);
+			bzero(&buffer,sizeof(buffer));
+				
+			return 1;   /* return success */
+    		}
+		}	
+
+    // if (fscanf (fp, " %255s%255s", fname, fpass) != 2) {   /* read fname/fpin */
+    //     fputs ("error: read of fpin failed.\n", stderr);
+    //     exit (EXIT_FAILURE);
+    // }
     fclose (fp);
-
-    if ((strcmp(pass, fpass) == 0)) {  /* validate login */
-        printf ("You have successfully logged in!\n");
-		bzero(buffer, sizeof(buffer));
-		strcpy(buffer, "230 User logged in, proceed.");
-		send(client_fd, buffer, strlen(buffer), 0);
-		bzero(&buffer,sizeof(buffer));
-
-        return 1;   /* return success */
-    }
 
 	printf("Failed login. Try again.\n");
 	bzero(buffer, sizeof(buffer));
